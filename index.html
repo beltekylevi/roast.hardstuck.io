@@ -130,15 +130,15 @@
         if (!resp.ok) return null;
         const json = await resp.json();
         const segments = json?.data?.segments || [];
-        const overview = segments.find(s => s.type === 'overview');
-        if (!overview) return null;
-        const rankStat = overview.stats?.rank;
+        const season = segments.find(s => s.type === 'season');
+        if (!season) return null;
+        const rankStat = season.stats?.rank;
         return {
           rank: rankStat?.metadata?.tierName || 'Unranked',
           iconUrl: rankStat?.metadata?.iconUrl || null,
           rr: rankStat?.value || 0,
-          peakRank: overview.stats?.peakRank?.metadata?.tierName || null,
-          peakRankIconUrl: overview.stats?.peakRank?.metadata?.iconUrl || null,
+          peakRank: season.stats?.peakRank?.metadata?.tierName || null,
+          peakRankIconUrl: season.stats?.peakRank?.metadata?.iconUrl || null,
         };
       } catch {
         return null;
