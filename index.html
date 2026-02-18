@@ -213,7 +213,7 @@
     async function fetchPlayerData(username) {
       const encoded = encodeURIComponent(username);
       const apiUrl = `https://api.tracker.gg/api/v1/valorant/matches/riot/${encoded}/aggregated?localOffset=-60&playlist=competitive&seasonId=`;
-      const proxyUrl = `https://api.cors.lol/?url=${encodeURIComponent(apiUrl)}`;
+      const proxyUrl = `https://beltekylevi--2fae82980cfd11f18ef642dde27851f2.web.val.run?url=${encodeURIComponent(apiUrl)}`;
       const resp = await fetch(proxyUrl);
       if (!resp.ok) throw new Error(`Failed to fetch data for ${username} (HTTP ${resp.status})`);
       return await resp.json();
@@ -222,7 +222,7 @@
     async function fetchPlayerRank(username) {
       const encoded = encodeURIComponent(username);
       const apiUrl = `https://api.tracker.gg/api/v2/valorant/standard/profile/riot/${encoded}`;
-      const proxyUrl = `https://api.cors.lol/?url=${encodeURIComponent(apiUrl)}`;
+      const proxyUrl = `https://beltekylevi--2fae82980cfd11f18ef642dde27851f2.web.val.run?url=${encodeURIComponent(apiUrl)}`;
       try {
         const resp = await fetch(proxyUrl);
         if (!resp.ok) return null;
