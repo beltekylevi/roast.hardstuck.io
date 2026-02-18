@@ -276,82 +276,261 @@
       return RANK_ORDER.findIndex(r => r.toLowerCase() === (rankName || '').toLowerCase());
     }
 
+    function pick(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
     function generateRoast(stats, rank) {
-      const roasts = [];
+      const candidates = [];
       const rankName = rank?.rank || 'Unranked';
       const rankIdx = getRankIndex(rankName);
+      const h = stats.totalHours.toFixed(0);
+      const hd = stats.totalHours.toFixed(1);
 
-      // Hours-based roasts
+      // Hours-based
       if (stats.totalHours > 80 && currentPeriod === 30) {
-        roasts.push("That's a part-time job. Except jobs pay you.");
+        candidates.push(pick([
+          "That's a part-time job. Except jobs pay you.",
+          `${h} hours in a month. Most employees work less than that. Voluntarily.`,
+          "At this point Riot owes you a salary.",
+          "You've put in more hours than some full-time interns. At least they get paid.",
+          `${h} hours. You could have learned a language. Instead you learned nothing.`,
+        ]));
       } else if (stats.totalHours > 40 && currentPeriod === 30) {
-        roasts.push("You could've picked up an entire new skill by now.");
+        candidates.push(pick([
+          "You could've picked up an entire new skill by now.",
+          `${h} hours this month. That's a week of your life. Gone.`,
+          "A full work week of Valorant. HR would like a word.",
+          "In the time you spent dying in-game, you could have actually built something.",
+          `${h} hours. You could have finished 6 books. You read zero.`,
+        ]));
+      } else if (stats.totalHours > 20) {
+        candidates.push(pick([
+          `${h} hours is more than most people exercise in a year.`,
+          "Casual player? Sure. That's what they all say.",
+          `${hd} hours. Not alarming. Just deeply sad.`,
+        ]));
       }
+
+      // Daily average
       if (stats.avgHoursPerDay > 5) {
-        roasts.push("Do you even see sunlight anymore?");
+        candidates.push(pick([
+          "Do you even see sunlight anymore?",
+          `${stats.avgHoursPerDay.toFixed(1)} hours a day. That's not a hobby, that's a coping mechanism.`,
+          "Your circadian rhythm filed a missing persons report.",
+          "5+ hours a day on average. Your social life called — it's moved on.",
+          "Vitamin D deficiency speedrun any%.",
+        ]));
       } else if (stats.avgHoursPerDay > 3) {
-        roasts.push("Your chair probably has a permanent imprint of you.");
+        candidates.push(pick([
+          "Your chair probably has a permanent imprint of you.",
+          `${stats.avgHoursPerDay.toFixed(1)} hours per day, every day. Normal people call this a problem.`,
+          "Your back hurts and you deserve it.",
+          "Over 3 hours a day on average. Your future self is not impressed.",
+          "Three hours daily. That's almost a part-time relationship with a video game.",
+        ]));
+      } else if (stats.avgHoursPerDay > 1) {
+        candidates.push(pick([
+          "At least you have some restraint. Barely.",
+          "An hour or two a day. You're still here though, aren't you.",
+          "Moderate, but let's be honest — you've had worse weeks.",
+        ]));
       }
 
-      // Rank-based roasts
+      // Rank + hours combos
       if (rankIdx >= 0 && rankIdx <= 5 && stats.totalHours > 20) {
-        roasts.push(`${stats.totalHours.toFixed(0)} hours and still ${rankName}? The game is trying to tell you something.`);
+        candidates.push(pick([
+          `${h} hours and still ${rankName}? The game is trying to tell you something.`,
+          `${rankName} after ${h} hours. Have you considered quitting?`,
+          `You've spent ${h} hours to be in the bottom tier. Talent is not your thing.`,
+          `${rankName}. After ${h} hours. I genuinely feel bad. Almost.`,
+          `Iron/Bronze after ${h} hours means the game has given up on you.`,
+        ]));
       } else if (rankIdx >= 6 && rankIdx <= 8 && stats.totalHours > 30) {
-        roasts.push(`Silver after ${stats.totalHours.toFixed(0)} hours is genuinely impressive... in a bad way.`);
+        candidates.push(pick([
+          `Silver after ${h} hours is genuinely impressive... in a bad way.`,
+          `${h} hours of practice and Silver is where you landed. Incredible.`,
+          `Silver. The rank where everyone thinks they deserve Gold. Including you.`,
+          `You've logged ${h} hours to be exactly average. Perfectly mediocre.`,
+          "Silver is just Bronze with a superiority complex. You fit right in.",
+        ]));
       } else if (rankIdx >= 9 && rankIdx <= 11 && stats.totalHours > 50) {
-        roasts.push("Gold is just Silver with extra steps. And you took a LOT of extra steps.");
+        candidates.push(pick([
+          "Gold is just Silver with extra steps. And you took a LOT of extra steps.",
+          `${h} hours for Gold. Most hobbies show more ROI than this.`,
+          "Gold players are the most delusional rank. They're good enough to know the game, bad enough to not escape.",
+          `${h} hours and a Gold medal. In the participation sense.`,
+          "Gold: where mid players go to feel special.",
+        ]));
+      } else if (rankIdx >= 12 && rankIdx <= 14 && stats.totalHours > 80) {
+        candidates.push(pick([
+          `Platinum after ${h} hours. You're not hardstuck, you're just… home.`,
+          "Platinum is where people think they're almost Diamond. They're not.",
+          `${h} hours of effort for Platinum. The grind respects no one.`,
+        ]));
+      } else if (rankIdx >= 15 && rankIdx <= 17 && stats.totalHours > 100) {
+        candidates.push(pick([
+          `Diamond and ${h} hours deep. The game owns you now.`,
+          "Diamond players don't have hobbies. They have Valorant.",
+          `You've donated ${h} hours of your life to reach Diamond. Was it worth it?`,
+        ]));
       }
 
+      // Unranked
       if (rankName === 'Unranked' && stats.totalMatches > 0) {
-        roasts.push("Not even ranked? Too scared to see the truth?");
+        candidates.push(pick([
+          "Not even ranked? Too scared to see the truth?",
+          "You play but won't rank. Peak commitment-phobic gamer.",
+          "Unranked is just Iron with plausible deniability.",
+          "No rank means no accountability. Smart, actually. Cowardly, but smart.",
+          `${stats.totalMatches} matches and still unranked. Impressive avoidance.`,
+        ]));
       }
 
-      // Win rate roasts
+      // Win rate
       if (stats.winRate < 45 && stats.totalMatches >= 10) {
-        roasts.push(`${stats.winRate.toFixed(0)}% win rate. Your teammates probably dread seeing your name.`);
+        candidates.push(pick([
+          `${stats.winRate.toFixed(0)}% win rate. Your teammates probably dread seeing your name.`,
+          `You lose more than you win. By a lot. The data is right there.`,
+          `${stats.winRate.toFixed(0)}% wins. Statistically, you are the problem.`,
+          "Below 45% win rate means on average you are actively dragging your team down.",
+          `${stats.winRate.toFixed(0)}% win rate. The enemy team doesn't even have to try.`,
+        ]));
       } else if (stats.winRate < 50 && stats.totalMatches >= 10) {
-        roasts.push("Below 50% win rate. You're literally making your team worse on average.");
+        candidates.push(pick([
+          "Below 50% win rate. You're literally making your team worse on average.",
+          "Negative win rate. The math doesn't lie, even if you do.",
+          "You lose slightly more than you win. The chaos agent of your lobby.",
+          `${stats.winRate.toFixed(0)}% wins. So close to being average. So far.`,
+        ]));
+      } else if (stats.winRate >= 55 && stats.totalMatches >= 10) {
+        candidates.push(pick([
+          `${stats.winRate.toFixed(0)}% win rate. Good. But you're still here, on this page, getting roasted.`,
+          "Solid win rate. Pity about everything else.",
+          `Winning ${stats.winRate.toFixed(0)}% of the time and you still can't quit. Interesting.`,
+        ]));
       }
 
-      // Frequency roasts
+      // Every day played
       if (stats.daysPlayed === stats.daysPeriod && stats.daysPeriod >= 7) {
-        roasts.push("Played EVERY single day. No days off. This is concerning.");
+        candidates.push(pick([
+          "Played EVERY single day. No days off. This is concerning.",
+          "Not one rest day. Valorant is not a rest day.",
+          "Zero days off. Zero. Your dedication to a video game is honestly alarming.",
+          "Every. Single. Day. The definition of a problem.",
+          "You played Valorant more consistently than most people brush their teeth.",
+        ]));
       }
 
-      if (stats.longestDayHours > 8) {
-        roasts.push(`${stats.longestDayHours.toFixed(1)} hours in a single day? That's not gaming, that's a hostage situation.`);
+      // Longest day
+      if (stats.longestDayHours > 10) {
+        candidates.push(pick([
+          `${stats.longestDayHours.toFixed(1)} hours in a single day? Were you okay?`,
+          `${hd} hours longest day. That's not a session, that's a shift.`,
+          `${stats.longestDayHours.toFixed(1)} hours straight. Your body filed a complaint.`,
+          "Double-digit hours in one day. The gaming chair held you hostage.",
+          `${stats.longestDayHours.toFixed(1)} hours. Even Riot's servers needed a break before you did.`,
+        ]));
+      } else if (stats.longestDayHours > 8) {
+        candidates.push(pick([
+          `${stats.longestDayHours.toFixed(1)} hours in a single day? That's not gaming, that's a hostage situation.`,
+          `${stats.longestDayHours.toFixed(1)}-hour day. The sun rose and set without you noticing.`,
+          "8+ hours in one sitting. Your spine would like a word.",
+          `${stats.longestDayHours.toFixed(1)} hours. At some point did you eat?`,
+        ]));
+      } else if (stats.longestDayHours > 5) {
+        candidates.push(pick([
+          `${stats.longestDayHours.toFixed(1)} hours on your worst day. You know who you are.`,
+          "5+ hour session at peak. That's a full evening dissolved into ranked.",
+          `${stats.longestDayHours.toFixed(1)}-hour marathon. Some people go on dates for less.`,
+        ]));
       }
 
-      // Waking hours roast
-      if (stats.wakingPercent > 30) {
-        roasts.push(`${stats.wakingPercent.toFixed(0)}% of your waking life. Let that sink in.`);
+      // Waking hours percent
+      if (stats.wakingPercent > 40) {
+        candidates.push(pick([
+          `${stats.wakingPercent.toFixed(0)}% of your waking life. Let that sink in.`,
+          `Nearly half your conscious existence went to Valorant. Half.`,
+          `${stats.wakingPercent.toFixed(0)}% of every waking hour. Valorant is your life now.`,
+          "Almost half your waking hours in a game. The other half was probably recovery.",
+          `${stats.wakingPercent.toFixed(0)}% of your conscious hours. This page is an intervention.`,
+        ]));
+      } else if (stats.wakingPercent > 25) {
+        candidates.push(pick([
+          `${stats.wakingPercent.toFixed(0)}% of your waking life on Valorant. A quarter of existence, wasted.`,
+          `1 in every 4 waking hours. That's time you're never getting back.`,
+          `${stats.wakingPercent.toFixed(0)}% of your days. The other ${(100 - stats.wakingPercent).toFixed(0)}% is just loading screens in disguise.`,
+        ]));
       }
 
-      // Hours per rank roast
-      if (rankIdx >= 0 && rankIdx <= 14) {
+      // Hours per rank tier efficiency
+      if (rankIdx >= 0 && rankIdx <= 17) {
         const hoursPerRank = stats.totalHours / Math.max(rankIdx + 1, 1);
-        if (hoursPerRank > 5) {
-          roasts.push(`That's ~${hoursPerRank.toFixed(1)} hours spent per rank tier. Efficiency is not your thing.`);
+        if (hoursPerRank > 8) {
+          candidates.push(pick([
+            `That's ~${hoursPerRank.toFixed(1)} hours spent per rank tier. Efficiency is not your thing.`,
+            `${hoursPerRank.toFixed(1)} hours per rank tier climbed. Brutal return on investment.`,
+            `~${hoursPerRank.toFixed(1)}h per rank tier. You are not a fast learner.`,
+          ]));
         }
       }
 
-      // Peak rank shame
+      // Peak rank regression
       if (rank?.peakRank) {
         const peakIdx = getRankIndex(rank.peakRank);
-        if (peakIdx > rankIdx + 2) {
-          roasts.push(`Peaked at ${rank.peakRank} but fell to ${rankName}. The decline is real.`);
+        if (peakIdx > rankIdx + 3) {
+          candidates.push(pick([
+            `Peaked at ${rank.peakRank} but fell to ${rankName}. The decline is real.`,
+            `${rank.peakRank} was the dream. ${rankName} is the reality. Rough.`,
+            `Once a ${rank.peakRank}, now a ${rankName}. This is a tragedy arc.`,
+            `The gap between ${rank.peakRank} and ${rankName} tells a whole story. A sad one.`,
+            `You've experienced both ${rank.peakRank} and ${rankName}. Only one of them stuck.`,
+          ]));
+        } else if (peakIdx > rankIdx + 1) {
+          candidates.push(pick([
+            `Slipped a bit from your peak ${rank.peakRank}. Gravity works on ranks too.`,
+            `${rank.peakRank} peak, ${rankName} now. Still falling or finally stable?`,
+          ]));
         }
       }
 
-      if (roasts.length === 0) {
-        if (stats.totalHours > 0) {
-          roasts.push("You play Valorant. That's the roast.");
-        } else {
-          roasts.push("No hours tracked. Either you're clean or you're hiding something.");
-        }
+      // Match count with no results
+      if (stats.totalMatches === 0 && stats.totalHours === 0) {
+        return [pick([
+          "No data found. Either you're clean, or you've hidden the evidence.",
+          "Nothing tracked. Suspicious. Very suspicious.",
+          "Zero hours, zero matches. You're either innocent or a liar.",
+          "No activity recorded. We'll pretend to believe you.",
+        ])];
       }
 
-      return roasts;
+      // Fallback / always-add general shames
+      if (candidates.length === 0) {
+        candidates.push(pick([
+          "You play Valorant. That's the roast.",
+          "Just the fact that you're here says enough.",
+          "No single stat stands out. The whole picture is the problem.",
+          "Average in every measurable way. Valorant has done this to you.",
+          "The numbers are whatever. You still play Valorant.",
+        ]));
+      }
+
+      // Always add one universal closing shame
+      const closers = [
+        "And yet here you are. About to queue again.",
+        "But sure, one more game.",
+        "The worst part? You're proud of some of this.",
+        "We don't judge. We just show the data.",
+        "This could have been a therapy session instead.",
+        "At least you're self-aware. Kind of.",
+        "Peak gamer. Trough human.",
+        "Riot thanks you for your service. And your time.",
+      ];
+      candidates.push(pick(closers));
+
+      // Return at most 3 roasts, randomly shuffled
+      const shuffled = candidates.sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, 3);
     }
 
     function renderPlayerCards() {
