@@ -30,6 +30,8 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .heatmap-cell { width: 14px; height: 14px; border-radius: 2px; }
     .tooltip { position: absolute; background: #1a2634; border: 1px solid #2a3a4a; padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #ccc; pointer-events: none; z-index: 50; white-space: nowrap; }
+    .roast-banner { animation: fadeInUp 0.5s ease-out; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body class="min-h-screen text-gray-200 font-sans">
@@ -39,7 +41,8 @@
       <h1 class="text-4xl font-bold mb-2">
         <span class="text-val-red">How Many Hours?</span>
       </h1>
-      <p class="text-gray-400">See how much of your life Valorant has consumed</p>
+      <p class="text-gray-400">Exposing how much of your life Valorant has devoured</p>
+      <p class="text-gray-600 text-sm mt-1">All that time and still hardstuck? Let's find out.</p>
     </div>
 
     <!-- Input -->
@@ -55,7 +58,7 @@
         onclick="handleTrack()"
         class="bg-val-red hover:bg-red-600 text-white font-semibold px-8 py-3 rounded-lg transition active:scale-95"
       >
-        Track
+        Expose
       </button>
     </div>
 
@@ -76,7 +79,7 @@
 
       <!-- Heatmap -->
       <div id="heatmapSection" class="bg-val-card border border-val-border rounded-xl p-6">
-        <h2 class="text-xl font-bold mb-4 text-white">Activity Heatmap</h2>
+        <h2 class="text-xl font-bold mb-4 text-white">Addiction Heatmap</h2>
         <div id="heatmapContainer"></div>
       </div>
     </div>
@@ -90,14 +93,23 @@
 
   <script>
     let playersData = {};
+    let playersRank = {};
     let currentPeriod = 14;
+
+    const RANK_ORDER = [
+      'Iron 1', 'Iron 2', 'Iron 3',
+      'Bronze 1', 'Bronze 2', 'Bronze 3',
+      'Silver 1', 'Silver 2', 'Silver 3',
+      'Gold 1', 'Gold 2', 'Gold 3',
+      'Platinum 1', 'Platinum 2', 'Platinum 3',
+      'Diamond 1', 'Diamond 2', 'Diamond 3',
+      'Ascendant 1', 'Ascendant 2', 'Ascendant 3',
+      'Immortal 1', 'Immortal 2', 'Immortal 3',
+      'Radiant'
+    ];
 
     function parseUsernames(input) {
       return input.split(',').map(s => s.trim()).filter(s => s.includes('#'));
-    }
-
-    function encodeUsername(name) {
-      return encodeURIComponent(name).replace('%23', '%23');
     }
 
     async function fetchPlayerData(username) {
@@ -106,8 +118,31 @@
       const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}`;
       const resp = await fetch(proxyUrl);
       if (!resp.ok) throw new Error(`Failed to fetch data for ${username} (HTTP ${resp.status})`);
-      const json = await resp.json();
-      return json;
+      return await resp.json();
+    }
+
+    async function fetchPlayerRank(username) {
+      const encoded = encodeURIComponent(username);
+      const apiUrl = `https://api.tracker.gg/api/v2/valorant/standard/profile/riot/${encoded}`;
+      const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}`;
+      try {
+        const resp = await fetch(proxyUrl);
+        if (!resp.ok) return null;
+        const json = await resp.json();
+        const segments = json?.data?.segments || [];
+        const overview = segments.find(s => s.type === 'overview');
+        if (!overview) return null;
+        const rankStat = overview.stats?.rank;
+        return {
+          rank: rankStat?.metadata?.tierName || 'Unranked',
+          iconUrl: rankStat?.metadata?.iconUrl || null,
+          rr: rankStat?.value || 0,
+          peakRank: overview.stats?.peakRank?.metadata?.tierName || null,
+          peakRankIconUrl: overview.stats?.peakRank?.metadata?.iconUrl || null,
+        };
+      } catch {
+        return null;
+      }
     }
 
     async function handleTrack() {
@@ -125,15 +160,20 @@
       const loadingArea = document.getElementById('loadingArea');
       loadingArea.classList.remove('hidden');
       loadingArea.innerHTML = usernames.map(u =>
-        `<div class="flex items-center gap-3 mb-2 text-gray-400"><div class="spinner"></div><span>Fetching ${escapeHtml(u)}...</span></div>`
+        `<div class="flex items-center gap-3 mb-2 text-gray-400"><div class="spinner"></div><span>Digging up dirt on ${escapeHtml(u)}...</span></div>`
       ).join('');
 
       document.getElementById('trackBtn').disabled = true;
       playersData = {};
+      playersRank = {};
 
       const results = await Promise.allSettled(usernames.map(async (username) => {
-        const data = await fetchPlayerData(username);
+        const [data, rank] = await Promise.all([
+          fetchPlayerData(username),
+          fetchPlayerRank(username),
+        ]);
         playersData[username] = data;
+        if (rank) playersRank[username] = rank;
       }));
 
       document.getElementById('trackBtn').disabled = false;
@@ -185,6 +225,7 @@
       let totalWins = 0;
       let totalLosses = 0;
       let daysWithData = 0;
+      let longestSessionMs = 0;
 
       heatmap.forEach(entry => {
         const entryDate = new Date(entry.date);
@@ -197,7 +238,10 @@
           totalMatches += matches;
           totalWins += wins;
           totalLosses += losses;
-          if (playtime > 0) daysWithData++;
+          if (playtime > 0) {
+            daysWithData++;
+            if (playtime > longestSessionMs) longestSessionMs = playtime;
+          }
         }
       });
 
@@ -206,6 +250,8 @@
       const wakingHours = days * 16;
       const totalPeriodHours = days * 24;
       const winRate = totalMatches > 0 ? (totalWins / totalMatches * 100) : 0;
+      const hoursPerMatch = totalMatches > 0 ? totalHours / totalMatches : 0;
+      const longestDayHours = longestSessionMs / 1000 / 60 / 60;
 
       return {
         totalHours,
@@ -219,7 +265,93 @@
         daysWithData,
         sleepHours: days * 8,
         otherHours: totalPeriodHours - totalHours - (days * 8),
+        hoursPerMatch,
+        longestDayHours,
+        daysPlayed: daysWithData,
+        daysPeriod: days,
       };
+    }
+
+    function getRankIndex(rankName) {
+      return RANK_ORDER.findIndex(r => r.toLowerCase() === (rankName || '').toLowerCase());
+    }
+
+    function generateRoast(stats, rank) {
+      const roasts = [];
+      const rankName = rank?.rank || 'Unranked';
+      const rankIdx = getRankIndex(rankName);
+
+      // Hours-based roasts
+      if (stats.totalHours > 80 && currentPeriod === 30) {
+        roasts.push("That's a part-time job. Except jobs pay you.");
+      } else if (stats.totalHours > 40 && currentPeriod === 30) {
+        roasts.push("You could've picked up an entire new skill by now.");
+      }
+      if (stats.avgHoursPerDay > 5) {
+        roasts.push("Do you even see sunlight anymore?");
+      } else if (stats.avgHoursPerDay > 3) {
+        roasts.push("Your chair probably has a permanent imprint of you.");
+      }
+
+      // Rank-based roasts
+      if (rankIdx >= 0 && rankIdx <= 5 && stats.totalHours > 20) {
+        roasts.push(`${stats.totalHours.toFixed(0)} hours and still ${rankName}? The game is trying to tell you something.`);
+      } else if (rankIdx >= 6 && rankIdx <= 8 && stats.totalHours > 30) {
+        roasts.push(`Silver after ${stats.totalHours.toFixed(0)} hours is genuinely impressive... in a bad way.`);
+      } else if (rankIdx >= 9 && rankIdx <= 11 && stats.totalHours > 50) {
+        roasts.push("Gold is just Silver with extra steps. And you took a LOT of extra steps.");
+      }
+
+      if (rankName === 'Unranked' && stats.totalMatches > 0) {
+        roasts.push("Not even ranked? Too scared to see the truth?");
+      }
+
+      // Win rate roasts
+      if (stats.winRate < 45 && stats.totalMatches >= 10) {
+        roasts.push(`${stats.winRate.toFixed(0)}% win rate. Your teammates probably dread seeing your name.`);
+      } else if (stats.winRate < 50 && stats.totalMatches >= 10) {
+        roasts.push("Below 50% win rate. You're literally making your team worse on average.");
+      }
+
+      // Frequency roasts
+      if (stats.daysPlayed === stats.daysPeriod && stats.daysPeriod >= 7) {
+        roasts.push("Played EVERY single day. No days off. This is concerning.");
+      }
+
+      if (stats.longestDayHours > 8) {
+        roasts.push(`${stats.longestDayHours.toFixed(1)} hours in a single day? That's not gaming, that's a hostage situation.`);
+      }
+
+      // Waking hours roast
+      if (stats.wakingPercent > 30) {
+        roasts.push(`${stats.wakingPercent.toFixed(0)}% of your waking life. Let that sink in.`);
+      }
+
+      // Hours per rank roast
+      if (rankIdx >= 0 && rankIdx <= 14) {
+        const hoursPerRank = stats.totalHours / Math.max(rankIdx + 1, 1);
+        if (hoursPerRank > 5) {
+          roasts.push(`That's ~${hoursPerRank.toFixed(1)} hours spent per rank tier. Efficiency is not your thing.`);
+        }
+      }
+
+      // Peak rank shame
+      if (rank?.peakRank) {
+        const peakIdx = getRankIndex(rank.peakRank);
+        if (peakIdx > rankIdx + 2) {
+          roasts.push(`Peaked at ${rank.peakRank} but fell to ${rankName}. The decline is real.`);
+        }
+      }
+
+      if (roasts.length === 0) {
+        if (stats.totalHours > 0) {
+          roasts.push("You play Valorant. That's the roast.");
+        } else {
+          roasts.push("No hours tracked. Either you're clean or you're hiding something.");
+        }
+      }
+
+      return roasts;
     }
 
     function renderPlayerCards() {
@@ -228,19 +360,51 @@
 
       Object.entries(playersData).forEach(([username, data]) => {
         const stats = getPlayerStats(data, currentPeriod);
+        const rank = playersRank[username];
         const totalPeriodHours = currentPeriod * 24;
         const valPct = (stats.totalHours / totalPeriodHours * 100).toFixed(1);
         const sleepPct = (stats.sleepHours / totalPeriodHours * 100).toFixed(1);
         const otherPct = Math.max(0, 100 - parseFloat(valPct) - parseFloat(sleepPct)).toFixed(1);
+        const roasts = generateRoast(stats, rank);
+
+        const rankName = rank?.rank || 'Unranked';
+        const rankIcon = rank?.iconUrl ? `<img src="${rank.iconUrl}" class="w-8 h-8 inline-block" alt="${rankName}">` : '';
+        const peakRankHtml = rank?.peakRank
+          ? `<div class="text-xs text-gray-500 mt-1">Peak: ${rank.peakRankIconUrl ? `<img src="${rank.peakRankIconUrl}" class="w-4 h-4 inline-block">` : ''} ${escapeHtml(rank.peakRank)}</div>`
+          : '';
+
+        // Calculate "could have done instead" equivalents
+        const booksCouldRead = Math.floor(stats.totalHours / 6);
+        const moviesCouldWatch = Math.floor(stats.totalHours / 2);
+        const mealsCouldCook = Math.floor(stats.totalHours / 1);
+        const workoutsCouldDo = Math.floor(stats.totalHours / 1.5);
 
         const card = document.createElement('div');
         card.className = 'bg-val-card border border-val-border rounded-xl p-6';
         card.innerHTML = `
-          <h3 class="text-xl font-bold text-white mb-4">${escapeHtml(username)}</h3>
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
+          <!-- Header with rank -->
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="text-xl font-bold text-white">${escapeHtml(username)}</h3>
+            <div class="flex items-center gap-2 bg-val-darker rounded-lg px-4 py-2 border border-val-border">
+              ${rankIcon}
+              <div>
+                <div class="text-sm font-bold text-white">${escapeHtml(rankName)}</div>
+                ${rank?.rr ? `<div class="text-xs text-gray-500">${rank.rr} RR</div>` : ''}
+              </div>
+            </div>
+          </div>
+          ${peakRankHtml ? `<div class="flex justify-end -mt-3 mb-3">${peakRankHtml}</div>` : ''}
+
+          <!-- Roast banner -->
+          <div class="roast-banner bg-red-950/40 border border-red-900/50 rounded-lg p-3 mb-5">
+            ${roasts.map(r => `<p class="text-sm text-red-300/90 mb-1 last:mb-0">${escapeHtml(r)}</p>`).join('')}
+          </div>
+
+          <!-- Stats grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mb-6">
             <div>
               <div class="text-2xl font-bold text-val-red">${stats.totalHours.toFixed(1)}h</div>
-              <div class="text-xs text-gray-400">Total Played</div>
+              <div class="text-xs text-gray-400">Time Wasted</div>
             </div>
             <div>
               <div class="text-2xl font-bold text-white">${stats.avgHoursPerDay.toFixed(1)}h</div>
@@ -251,17 +415,32 @@
               <div class="text-xs text-gray-400">${stats.totalWins}W ${stats.totalLosses}L (${stats.winRate.toFixed(0)}%)</div>
             </div>
             <div>
-              <div class="text-2xl font-bold text-yellow-400">${stats.wakingPercent.toFixed(1)}%</div>
-              <div class="text-xs text-gray-400">Waking Hours</div>
+              <div class="text-2xl font-bold text-orange-400">${stats.longestDayHours.toFixed(1)}h</div>
+              <div class="text-xs text-gray-400">Worst Day</div>
             </div>
             <div>
-              <div class="text-2xl font-bold text-gray-300">${stats.totalPercent.toFixed(1)}%</div>
-              <div class="text-xs text-gray-400">Total Hours</div>
+              <div class="text-2xl font-bold text-yellow-400">${stats.wakingPercent.toFixed(1)}%</div>
+              <div class="text-xs text-gray-400">of Waking Life</div>
+            </div>
+            <div>
+              <div class="text-2xl font-bold text-gray-300">${stats.daysPlayed}/${stats.daysPeriod}</div>
+              <div class="text-xs text-gray-400">Days Played</div>
+            </div>
+          </div>
+
+          <!-- "Could have instead" section -->
+          <div class="bg-val-darker rounded-lg p-3 mb-5 border border-val-border">
+            <div class="text-xs text-gray-500 font-medium mb-2 uppercase tracking-wide">Instead of ${stats.totalHours.toFixed(1)}h of Valorant, you could have...</div>
+            <div class="flex flex-wrap gap-3 text-sm">
+              ${booksCouldRead > 0 ? `<span class="text-blue-400">Read ${booksCouldRead} book${booksCouldRead > 1 ? 's' : ''}</span><span class="text-gray-600">|</span>` : ''}
+              ${moviesCouldWatch > 0 ? `<span class="text-purple-400">Watched ${moviesCouldWatch} movie${moviesCouldWatch > 1 ? 's' : ''}</span><span class="text-gray-600">|</span>` : ''}
+              ${workoutsCouldDo > 0 ? `<span class="text-green-400">Done ${workoutsCouldDo} workout${workoutsCouldDo > 1 ? 's' : ''}</span><span class="text-gray-600">|</span>` : ''}
+              ${mealsCouldCook > 0 ? `<span class="text-amber-400">Cooked ${mealsCouldCook} meal${mealsCouldCook > 1 ? 's' : ''}</span>` : ''}
             </div>
           </div>
 
           <!-- Breakdown Bar -->
-          <div class="mb-2 text-xs text-gray-400 font-medium">Time Breakdown</div>
+          <div class="mb-2 text-xs text-gray-400 font-medium">Where Your Time Actually Goes</div>
           <div class="flex rounded-lg overflow-hidden h-7 mb-2">
             <div class="bg-val-red flex items-center justify-center text-xs font-medium text-white" style="width: ${Math.max(parseFloat(valPct), 0.5)}%">${parseFloat(valPct) > 3 ? valPct + '%' : ''}</div>
             <div class="bg-indigo-900 flex items-center justify-center text-xs font-medium text-indigo-200" style="width: ${sleepPct}%">${parseFloat(sleepPct) > 5 ? 'Sleep' : ''}</div>
@@ -304,7 +483,6 @@
         return;
       }
 
-      // Find max hours for color scaling
       let maxHours = 0;
       Object.values(playerHeatmaps).forEach(map => {
         Object.values(map).forEach(v => { if (v.hours > maxHours) maxHours = v.hours; });
@@ -372,7 +550,6 @@
       return div.innerHTML;
     }
 
-    // Allow Enter key to trigger track
     document.getElementById('usernameInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') handleTrack();
     });
