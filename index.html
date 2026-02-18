@@ -37,12 +37,16 @@
 <body class="min-h-screen text-gray-200 font-sans">
   <div class="max-w-5xl mx-auto px-4 py-10">
     <!-- Header -->
-    <div class="text-center mb-10">
+    <div class="text-center mb-10 relative">
+      <div class="absolute right-0 top-0 flex gap-1">
+        <button id="langEn" onclick="setLang('en')" class="px-3 py-1 rounded text-sm font-semibold bg-val-red text-white transition">EN</button>
+        <button id="langHu" onclick="setLang('hu')" class="px-3 py-1 rounded text-sm font-semibold text-gray-400 hover:text-white transition">HU</button>
+      </div>
       <h1 class="text-4xl font-bold mb-2">
-        <span class="text-val-red">How Many Hours?</span>
+        <span class="text-val-red" data-i18n="title">How Many Hours?</span>
       </h1>
-      <p class="text-gray-400">Exposing how much of your life Valorant has devoured</p>
-      <p class="text-gray-600 text-sm mt-1">All that time and still hardstuck? Let's find out.</p>
+      <p class="text-gray-400" data-i18n="subtitle">Exposing how much of your life Valorant has devoured</p>
+      <p class="text-gray-600 text-sm mt-1" data-i18n="subsubtitle">All that time and still hardstuck? Let's find out.</p>
     </div>
 
     <!-- Input -->
@@ -50,6 +54,7 @@
       <input
         id="usernameInput"
         type="text"
+        data-i18n-placeholder="inputPlaceholder"
         placeholder="Player#TAG, Another#1234"
         class="flex-1 bg-val-card border border-val-border rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-val-red transition"
       />
@@ -58,7 +63,7 @@
         onclick="handleTrack()"
         class="bg-val-red hover:bg-red-600 text-white font-semibold px-8 py-3 rounded-lg transition active:scale-95"
       >
-        Expose
+        <span data-i18n="exposeBtn">Expose</span>
       </button>
     </div>
 
@@ -69,9 +74,9 @@
     <div id="results" class="hidden">
       <!-- Period toggle -->
       <div class="flex justify-center gap-2 mb-8">
-        <button onclick="setPeriod(7)" data-period="7" class="period-btn px-5 py-2 rounded-lg font-medium transition text-sm">Last 7 days</button>
-        <button onclick="setPeriod(14)" data-period="14" class="period-btn px-5 py-2 rounded-lg font-medium transition text-sm">Last 14 days</button>
-        <button onclick="setPeriod(30)" data-period="30" class="period-btn px-5 py-2 rounded-lg font-medium transition text-sm">Last 30 days</button>
+        <button onclick="setPeriod(7)" data-period="7" class="period-btn px-5 py-2 rounded-lg font-medium transition text-sm"><span data-i18n="period7">Last 7 days</span></button>
+        <button onclick="setPeriod(14)" data-period="14" class="period-btn px-5 py-2 rounded-lg font-medium transition text-sm"><span data-i18n="period14">Last 14 days</span></button>
+        <button onclick="setPeriod(30)" data-period="30" class="period-btn px-5 py-2 rounded-lg font-medium transition text-sm"><span data-i18n="period30">Last 30 days</span></button>
       </div>
 
       <!-- Player cards -->
@@ -79,7 +84,7 @@
 
       <!-- Heatmap -->
       <div id="heatmapSection" class="bg-val-card border border-val-border rounded-xl p-6">
-        <h2 class="text-xl font-bold mb-4 text-white">Addiction Heatmap</h2>
+        <h2 class="text-xl font-bold mb-4 text-white" data-i18n="heatmapTitle">Addiction Heatmap</h2>
         <div id="heatmapContainer"></div>
       </div>
     </div>
@@ -92,9 +97,102 @@
   <div id="tooltip" class="tooltip hidden"></div>
 
   <script>
+    let currentLang = 'en';
     let playersData = {};
     let playersRank = {};
     let currentPeriod = 14;
+
+    const T = {
+      en: {
+        title: 'How Many Hours?',
+        pageTitle: 'How Many Hours? - Valorant Time Tracker',
+        subtitle: 'Exposing how much of your life Valorant has devoured',
+        subsubtitle: "All that time and still hardstuck? Let's find out.",
+        inputPlaceholder: 'Player#TAG, Another#1234',
+        exposeBtn: 'Expose',
+        period7: 'Last 7 days',
+        period14: 'Last 14 days',
+        period30: 'Last 30 days',
+        heatmapTitle: 'Addiction Heatmap',
+        loading: u => `Digging up dirt on ${u}...`,
+        errInvalidFormat: 'Please enter valid Riot IDs in the format Player#TAG',
+        errNoData: e => `Could not fetch data for any player. ${e}<br><br>If CORS proxy is blocked, try opening this page in a different browser or disabling extensions.`,
+        errSomeFailed: e => `Some players failed: ${e}`,
+        noHeatmap: 'No heatmap data available.',
+        tooltipMatches: 'matches',
+        statTimeWasted: 'Time Wasted',
+        statAvgDay: 'Avg/Day',
+        statWorstDay: 'Worst Day',
+        statWakingLife: 'of Waking Life',
+        statDaysPlayed: 'Days Played',
+        couldHaveInstead: h => `Instead of ${h}h of Valorant, you could have...`,
+        books: n => `Read ${n} book${n > 1 ? 's' : ''}`,
+        movies: n => `Watched ${n} movie${n > 1 ? 's' : ''}`,
+        workouts: n => `Done ${n} workout${n > 1 ? 's' : ''}`,
+        meals: n => `Cooked ${n} meal${n > 1 ? 's' : ''}`,
+        timeBreakdown: 'Where Your Time Actually Goes',
+        sleep: 'Sleep',
+        other: 'Other',
+        peak: 'Peak',
+        unranked: 'Unranked',
+      },
+      hu: {
+        title: 'Hány Óra?',
+        pageTitle: 'Hány Óra? - Valorant Időkövetés',
+        subtitle: 'Leleplezzük, mennyit falt fel az életedből a Valorant',
+        subsubtitle: 'Ennyi idő után még mindig beragadtál? Nézzük meg.',
+        inputPlaceholder: 'Játékos#TAG, Másik#1234',
+        exposeBtn: 'Leplezz le',
+        period7: 'Utolsó 7 nap',
+        period14: 'Utolsó 14 nap',
+        period30: 'Utolsó 30 nap',
+        heatmapTitle: 'Függőségi Hőtérkép',
+        loading: u => `Piszkot keresünk ${u} után...`,
+        errInvalidFormat: 'Kérjük, érvényes Riot ID-t adj meg Player#TAG formátumban',
+        errNoData: e => `Egyetlen játékos adatait sem sikerült lekérni. ${e}<br><br>Ha a CORS proxy blokkolva van, próbáld más böngészőben megnyitni.`,
+        errSomeFailed: e => `Néhány játékos nem töltött be: ${e}`,
+        noHeatmap: 'Nincs elérhető hőtérkép-adat.',
+        tooltipMatches: 'meccs',
+        statTimeWasted: 'Pazarolt Idő',
+        statAvgDay: 'Napi Átlag',
+        statWorstDay: 'Legtöbb Egy Nap',
+        statWakingLife: 'Ébrenléted',
+        statDaysPlayed: 'Játéknapok',
+        couldHaveInstead: h => `${h} óra Valorant helyett lehetett volna...`,
+        books: n => `${n} könyvet elolvasni`,
+        movies: n => `${n} filmet megnézni`,
+        workouts: n => `${n} edzést elvégezni`,
+        meals: n => `${n} ételt megfőzni`,
+        timeBreakdown: 'Hova megy az időd valójában',
+        sleep: 'Alvás',
+        other: 'Egyéb',
+        peak: 'Csúcs',
+        unranked: 'Rangolatlan',
+      },
+    };
+
+    function t(key) { return T[currentLang][key]; }
+
+    function setLang(lang) {
+      currentLang = lang;
+      document.documentElement.lang = lang;
+      document.title = t('pageTitle');
+      applyTranslations();
+      document.getElementById('langEn').className = `px-3 py-1 rounded text-sm font-semibold transition ${lang === 'en' ? 'bg-val-red text-white' : 'text-gray-400 hover:text-white'}`;
+      document.getElementById('langHu').className = `px-3 py-1 rounded text-sm font-semibold transition ${lang === 'hu' ? 'bg-val-red text-white' : 'text-gray-400 hover:text-white'}`;
+      if (!document.getElementById('results').classList.contains('hidden')) {
+        setPeriod(currentPeriod);
+      }
+    }
+
+    function applyTranslations() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.dataset.i18n);
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.placeholder = t(el.dataset.i18nPlaceholder);
+      });
+    }
 
     const RANK_ORDER = [
       'Iron 1', 'Iron 2', 'Iron 3',
@@ -151,7 +249,7 @@
 
       const usernames = parseUsernames(input);
       if (usernames.length === 0) {
-        showError('Please enter valid Riot IDs in the format Player#TAG');
+        showError(t('errInvalidFormat'));
         return;
       }
 
@@ -160,7 +258,7 @@
       const loadingArea = document.getElementById('loadingArea');
       loadingArea.classList.remove('hidden');
       loadingArea.innerHTML = usernames.map(u =>
-        `<div class="flex items-center gap-3 mb-2 text-gray-400"><div class="spinner"></div><span>Digging up dirt on ${escapeHtml(u)}...</span></div>`
+        `<div class="flex items-center gap-3 mb-2 text-gray-400"><div class="spinner"></div><span>${escapeHtml(t('loading')(u))}</span></div>`
       ).join('');
 
       document.getElementById('trackBtn').disabled = true;
@@ -185,13 +283,12 @@
       });
 
       if (Object.keys(playersData).length === 0) {
-        showError('Could not fetch data for any player. ' + errors.join('; ') +
-          '<br><br>If CORS proxy is blocked, try opening this page in a different browser or disabling extensions.');
+        showError(t('errNoData')(errors.join('; ')));
         return;
       }
 
       if (errors.length > 0) {
-        showError('Some players failed: ' + errors.join('; '), true);
+        showError(t('errSomeFailed')(errors.join('; ')), true);
       }
 
       document.getElementById('results').classList.remove('hidden');
@@ -286,10 +383,17 @@
       const rankIdx = getRankIndex(rankName);
       const h = stats.totalHours.toFixed(0);
       const hd = stats.totalHours.toFixed(1);
+      const hu = currentLang === 'hu';
 
       // Hours-based
       if (stats.totalHours > 80 && currentPeriod === 30) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          "Ez már részmunkaidős állás. Azzal a különbséggel, hogy ezért nem fizetnek.",
+          `${h} óra egy hónap alatt. A legtöbb alkalmazott kevesebbet dolgozik. Önként.`,
+          "Ezen a ponton már a Riot tartozik neked egy fizetéssel.",
+          "Több órát töltöttél itt, mint egy teljes munkaidős intern. Legalább nekik fizetnek.",
+          `${h} óra. Megtanulhattál volna egy nyelvet. Ehelyett semmit sem tanultál.`,
+        ] : [
           "That's a part-time job. Except jobs pay you.",
           `${h} hours in a month. Most employees work less than that. Voluntarily.`,
           "At this point Riot owes you a salary.",
@@ -297,7 +401,13 @@
           `${h} hours. You could have learned a language. Instead you learned nothing.`,
         ]));
       } else if (stats.totalHours > 40 && currentPeriod === 30) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          "Eközben akár egy teljesen új készséget is elsajátíthattál volna.",
+          `${h} óra ebben a hónapban. Ez egy egész hét az életedből. Eltűnt.`,
+          "Egy teljes munkahét Valorant. A főnök szeretne veled beszélni.",
+          "Amíg a játékban haltál, valami maradandót is alkothattál volna.",
+          `${h} óra. Elolvashattál volna 6 könyvet. Nullát olvastál.`,
+        ] : [
           "You could've picked up an entire new skill by now.",
           `${h} hours this month. That's a week of your life. Gone.`,
           "A full work week of Valorant. HR would like a word.",
@@ -305,7 +415,11 @@
           `${h} hours. You could have finished 6 books. You read zero.`,
         ]));
       } else if (stats.totalHours > 20) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `${h} óra több, mint amennyit a legtöbb ember egy évben mozog.`,
+          "Casual játékos? Persze. Ezt mondják mind.",
+          `${hd} óra. Nem riasztó. Csak mélyen szomorú.`,
+        ] : [
           `${h} hours is more than most people exercise in a year.`,
           "Casual player? Sure. That's what they all say.",
           `${hd} hours. Not alarming. Just deeply sad.`,
@@ -314,7 +428,13 @@
 
       // Daily average
       if (stats.avgHoursPerDay > 5) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          "Látod egyáltalán a napfényt?",
+          `Napi ${stats.avgHoursPerDay.toFixed(1)} óra. Ez nem hobbi, ez megküzdési mechanizmus.`,
+          "A cirkadián ritmusod eltűntnek nyilváníttatott.",
+          "Napi 5+ óra átlagban. A társasági életed felhívott – továbblépett.",
+          "D-vitamin hiány speedrun any%.",
+        ] : [
           "Do you even see sunlight anymore?",
           `${stats.avgHoursPerDay.toFixed(1)} hours a day. That's not a hobby, that's a coping mechanism.`,
           "Your circadian rhythm filed a missing persons report.",
@@ -322,7 +442,13 @@
           "Vitamin D deficiency speedrun any%.",
         ]));
       } else if (stats.avgHoursPerDay > 3) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          "A széked már felvette az alakodat.",
+          `Napi ${stats.avgHoursPerDay.toFixed(1)} óra, minden nap. A normális emberek ezt problémának hívják.`,
+          "A hátad fáj és megérdemled.",
+          "Napi 3+ óra átlagban. A jövőbeli éned nem impresszált.",
+          "Napi három óra. Ez már majdnem félmunkaidős kapcsolat egy videójátékkal.",
+        ] : [
           "Your chair probably has a permanent imprint of you.",
           `${stats.avgHoursPerDay.toFixed(1)} hours per day, every day. Normal people call this a problem.`,
           "Your back hurts and you deserve it.",
@@ -330,7 +456,11 @@
           "Three hours daily. That's almost a part-time relationship with a video game.",
         ]));
       } else if (stats.avgHoursPerDay > 1) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          "Legalább van valami önfegyelmed. Alig.",
+          "Egy-két óra naponta. De mégis itt vagy, ugye.",
+          "Mérsékelt, de legyünk őszinték – voltak rosszabb heteid is.",
+        ] : [
           "At least you have some restraint. Barely.",
           "An hour or two a day. You're still here though, aren't you.",
           "Moderate, but let's be honest — you've had worse weeks.",
@@ -339,7 +469,13 @@
 
       // Rank + hours combos
       if (rankIdx >= 0 && rankIdx <= 5 && stats.totalHours > 20) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `${h} óra és még mindig ${rankName}? A játék üzenni próbál neked.`,
+          `${rankName} ${h} óra után. Fontolóra vetted már a visszavonulást?`,
+          `${h} óra alatt az alsó szinten ragadtál. A tehetség nem a te területed.`,
+          `${rankName}. ${h} óra után. Majdnem sajnállak. Majdnem.`,
+          `Iron/Bronze ${h} óra után azt jelenti, a játék feladott veled.`,
+        ] : [
           `${h} hours and still ${rankName}? The game is trying to tell you something.`,
           `${rankName} after ${h} hours. Have you considered quitting?`,
           `You've spent ${h} hours to be in the bottom tier. Talent is not your thing.`,
@@ -347,7 +483,13 @@
           `Iron/Bronze after ${h} hours means the game has given up on you.`,
         ]));
       } else if (rankIdx >= 6 && rankIdx <= 8 && stats.totalHours > 30) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `Silver ${h} óra után igazán lenyűgöző... a rossz értelmében.`,
+          `${h} óra gyakorlás és itt van: Silver. Hihetetlen.`,
+          "Silver. A rang, ahol mindenki azt hiszi, megérdemel Gold-ot. Te is.",
+          `${h} óra alatt pontosan átlagos lettél. Tökéletesen középszerű.`,
+          "A Silver csak Bronze felsőbbrendűségi komplexussal. Jól illeszkedsz.",
+        ] : [
           `Silver after ${h} hours is genuinely impressive... in a bad way.`,
           `${h} hours of practice and Silver is where you landed. Incredible.`,
           `Silver. The rank where everyone thinks they deserve Gold. Including you.`,
@@ -355,7 +497,13 @@
           "Silver is just Bronze with a superiority complex. You fit right in.",
         ]));
       } else if (rankIdx >= 9 && rankIdx <= 11 && stats.totalHours > 50) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          "A Gold csak Silver extra lépésekkel. És te RENGETEG extra lépést tettél.",
+          `${h} óra a Gold-ért. A legtöbb hobbi jobb megtérülést mutat.`,
+          "A Gold játékosok a legiluzórikusabb rang. Elég jók ahhoz, hogy értsék a játékot, de nem elég jók ahhoz, hogy kijussanak.",
+          `${h} óra és egy aranyérem. A részvétel értelmében.`,
+          "Gold: ahol a közepes játékosok különlegesnek érzik magukat.",
+        ] : [
           "Gold is just Silver with extra steps. And you took a LOT of extra steps.",
           `${h} hours for Gold. Most hobbies show more ROI than this.`,
           "Gold players are the most delusional rank. They're good enough to know the game, bad enough to not escape.",
@@ -363,13 +511,21 @@
           "Gold: where mid players go to feel special.",
         ]));
       } else if (rankIdx >= 12 && rankIdx <= 14 && stats.totalHours > 80) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `Platinum ${h} óra után. Nem beragadtál, csak… otthon vagy.`,
+          "A Platinum az a rang, ahol az emberek azt hiszik, közel vannak a Diamond-hoz. Nincsenek.",
+          `${h} óra erőfeszítés a Platinum-ért. A grind senkivel sem kegyelmez.`,
+        ] : [
           `Platinum after ${h} hours. You're not hardstuck, you're just… home.`,
           "Platinum is where people think they're almost Diamond. They're not.",
           `${h} hours of effort for Platinum. The grind respects no one.`,
         ]));
       } else if (rankIdx >= 15 && rankIdx <= 17 && stats.totalHours > 100) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `Diamond és ${h} óra mélyen. A játék már téged birtokol.`,
+          "A Diamond játékosoknak nincs hobbijuk. Van Valorantjuk.",
+          `${h} órádat adományoztad a Diamond eléréséért. Megérte?`,
+        ] : [
           `Diamond and ${h} hours deep. The game owns you now.`,
           "Diamond players don't have hobbies. They have Valorant.",
           `You've donated ${h} hours of your life to reach Diamond. Was it worth it?`,
@@ -378,7 +534,13 @@
 
       // Unranked
       if (rankName === 'Unranked' && stats.totalMatches > 0) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          "Még rangsored sincs? Túl félsz megismerni az igazságot?",
+          "Játszol, de nem rangsorolsz. A csúcs elköteleződés-fóbiás gamer.",
+          "A rangolatlan csak Iron hiteles tagadhatósággal.",
+          "Nincs rang, nincs felelősség. Okos, igazából. Gyáva, de okos.",
+          `${stats.totalMatches} meccs és még mindig rangolatlan. Lenyűgöző elkerülés.`,
+        ] : [
           "Not even ranked? Too scared to see the truth?",
           "You play but won't rank. Peak commitment-phobic gamer.",
           "Unranked is just Iron with plausible deniability.",
@@ -389,7 +551,13 @@
 
       // Win rate
       if (stats.winRate < 45 && stats.totalMatches >= 10) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `${stats.winRate.toFixed(0)}% győzelmi arány. A csapattársaid valószínűleg rettegnek, ha meglátják a nevedet.`,
+          "Többet veszítesz, mint nyersz. Jelentősen. Az adatok ott vannak.",
+          `${stats.winRate.toFixed(0)}% győzelem. Statisztikailag te vagy a probléma.`,
+          "45% alatti győzelmi arány azt jelenti, hogy aktívan húzod le a csapatodat.",
+          `${stats.winRate.toFixed(0)}% győzelmi arány. Az ellenfél csapatnak nem is kell erőlködnie.`,
+        ] : [
           `${stats.winRate.toFixed(0)}% win rate. Your teammates probably dread seeing your name.`,
           `You lose more than you win. By a lot. The data is right there.`,
           `${stats.winRate.toFixed(0)}% wins. Statistically, you are the problem.`,
@@ -397,14 +565,23 @@
           `${stats.winRate.toFixed(0)}% win rate. The enemy team doesn't even have to try.`,
         ]));
       } else if (stats.winRate < 50 && stats.totalMatches >= 10) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          "50% alatti győzelmi arány. Szó szerint rosszabbá teszed a csapatodat átlagosan.",
+          "Negatív győzelmi arány. A matematika nem hazudik, még ha te igen is.",
+          "Kicsit többet veszítesz, mint nyersz. A lobby káosz agentje.",
+          `${stats.winRate.toFixed(0)}% győzelem. Olyan közel az átlaghoz. Olyan messze.`,
+        ] : [
           "Below 50% win rate. You're literally making your team worse on average.",
           "Negative win rate. The math doesn't lie, even if you do.",
           "You lose slightly more than you win. The chaos agent of your lobby.",
           `${stats.winRate.toFixed(0)}% wins. So close to being average. So far.`,
         ]));
       } else if (stats.winRate >= 55 && stats.totalMatches >= 10) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `${stats.winRate.toFixed(0)}% győzelmi arány. Jó. De még mindig itt vagy, ezen az oldalon, lebőrözve.`,
+          "Erős győzelmi arány. Kár a többi mindenért.",
+          `Nyer ${stats.winRate.toFixed(0)}% esetén és még mindig nem bír leszokni. Érdekes.`,
+        ] : [
           `${stats.winRate.toFixed(0)}% win rate. Good. But you're still here, on this page, getting roasted.`,
           "Solid win rate. Pity about everything else.",
           `Winning ${stats.winRate.toFixed(0)}% of the time and you still can't quit. Interesting.`,
@@ -413,7 +590,13 @@
 
       // Every day played
       if (stats.daysPlayed === stats.daysPeriod && stats.daysPeriod >= 7) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          "MINDEN egyes nap játszott. Sem egy pihenőnap. Ez aggasztó.",
+          "Egyetlen pihenőnap sem. A Valorant nem számít pihenőnapnak.",
+          "Nulla szabad nap. Nulla. A videójáték iránti elhivatottságod komolyan riasztó.",
+          "Minden. Egyes. Nap. Ez a probléma definíciója.",
+          "A Valorantnál következetesebben játszottál, mint ahogy a legtöbb ember fogat mos.",
+        ] : [
           "Played EVERY single day. No days off. This is concerning.",
           "Not one rest day. Valorant is not a rest day.",
           "Zero days off. Zero. Your dedication to a video game is honestly alarming.",
@@ -424,7 +607,13 @@
 
       // Longest day
       if (stats.longestDayHours > 10) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `${stats.longestDayHours.toFixed(1)} óra egyetlen nap alatt? Jól voltál?`,
+          `${stats.longestDayHours.toFixed(1)} óra leghosszabb nap. Ez nem session, ez egy műszak.`,
+          `${stats.longestDayHours.toFixed(1)} óra egyhuzamban. A tested panaszt nyújtott be.`,
+          "Tíz feletti óra egy nap. A gaming szék fogva tartott.",
+          `${stats.longestDayHours.toFixed(1)} óra. Még a Riot szervereinek is előbb kellett szünetet tartaniuk.`,
+        ] : [
           `${stats.longestDayHours.toFixed(1)} hours in a single day? Were you okay?`,
           `${hd} hours longest day. That's not a session, that's a shift.`,
           `${stats.longestDayHours.toFixed(1)} hours straight. Your body filed a complaint.`,
@@ -432,14 +621,23 @@
           `${stats.longestDayHours.toFixed(1)} hours. Even Riot's servers needed a break before you did.`,
         ]));
       } else if (stats.longestDayHours > 8) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `${stats.longestDayHours.toFixed(1)} óra egyetlen nap alatt? Ez nem gaming, ez túszejtés.`,
+          `${stats.longestDayHours.toFixed(1)} órás nap. A nap felkelt és lenyugodott anélkül, hogy észrevetted volna.`,
+          "8+ óra egy ülésen. A gerincednek lenne mondanivalója.",
+          `${stats.longestDayHours.toFixed(1)} óra. Valahol közben ettél egyáltalán?`,
+        ] : [
           `${stats.longestDayHours.toFixed(1)} hours in a single day? That's not gaming, that's a hostage situation.`,
           `${stats.longestDayHours.toFixed(1)}-hour day. The sun rose and set without you noticing.`,
           "8+ hours in one sitting. Your spine would like a word.",
           `${stats.longestDayHours.toFixed(1)} hours. At some point did you eat?`,
         ]));
       } else if (stats.longestDayHours > 5) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `${stats.longestDayHours.toFixed(1)} óra a legrosszabb napodon. Tudod, ki vagy.`,
+          "5+ órás session a csúcson. Ez egy teljes este feloldódva a rankedben.",
+          `${stats.longestDayHours.toFixed(1)} órás maraton. Néhányan ennyi idő alatt randira mennek.`,
+        ] : [
           `${stats.longestDayHours.toFixed(1)} hours on your worst day. You know who you are.`,
           "5+ hour session at peak. That's a full evening dissolved into ranked.",
           `${stats.longestDayHours.toFixed(1)}-hour marathon. Some people go on dates for less.`,
@@ -448,7 +646,13 @@
 
       // Waking hours percent
       if (stats.wakingPercent > 40) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `Ébrenléted ${stats.wakingPercent.toFixed(0)}%-a. Hagyd, hogy ez beessen.`,
+          "Tudatos létezésed majdnem fele Valorantba ment. Fele.",
+          `Ébrenléted ${stats.wakingPercent.toFixed(0)}%-a. A Valorant az életed most.`,
+          "Majdnem fél ébrenléted egy játékban. A másik fele valószínűleg a felépülés volt.",
+          `Tudatos óráid ${stats.wakingPercent.toFixed(0)}%-a. Ez az oldal egy beavatkozás.`,
+        ] : [
           `${stats.wakingPercent.toFixed(0)}% of your waking life. Let that sink in.`,
           `Nearly half your conscious existence went to Valorant. Half.`,
           `${stats.wakingPercent.toFixed(0)}% of every waking hour. Valorant is your life now.`,
@@ -456,7 +660,11 @@
           `${stats.wakingPercent.toFixed(0)}% of your conscious hours. This page is an intervention.`,
         ]));
       } else if (stats.wakingPercent > 25) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          `Ébrenléted ${stats.wakingPercent.toFixed(0)}%-a Valorantra. A létezés egynegyede, elpazarolva.`,
+          "Minden 4. ébrenléti óra Valorant volt. Ez az idő soha nem jön vissza.",
+          `Napjaid ${stats.wakingPercent.toFixed(0)}%-a. A maradék ${(100 - stats.wakingPercent).toFixed(0)}% csak álcázott töltési képernyők.`,
+        ] : [
           `${stats.wakingPercent.toFixed(0)}% of your waking life on Valorant. A quarter of existence, wasted.`,
           `1 in every 4 waking hours. That's time you're never getting back.`,
           `${stats.wakingPercent.toFixed(0)}% of your days. The other ${(100 - stats.wakingPercent).toFixed(0)}% is just loading screens in disguise.`,
@@ -467,7 +675,11 @@
       if (rankIdx >= 0 && rankIdx <= 17) {
         const hoursPerRank = stats.totalHours / Math.max(rankIdx + 1, 1);
         if (hoursPerRank > 8) {
-          candidates.push(pick([
+          candidates.push(pick(hu ? [
+            `Ez ~${hoursPerRank.toFixed(1)} óra rangtierenként. A hatékonyság nem a te erősséged.`,
+            `${hoursPerRank.toFixed(1)} óra megmászott rangtierenként. Brutális befektetési megtérülés.`,
+            `~${hoursPerRank.toFixed(1)}ó rangtierenként. Nem vagy gyors tanuló.`,
+          ] : [
             `That's ~${hoursPerRank.toFixed(1)} hours spent per rank tier. Efficiency is not your thing.`,
             `${hoursPerRank.toFixed(1)} hours per rank tier climbed. Brutal return on investment.`,
             `~${hoursPerRank.toFixed(1)}h per rank tier. You are not a fast learner.`,
@@ -479,7 +691,13 @@
       if (rank?.peakRank) {
         const peakIdx = getRankIndex(rank.peakRank);
         if (peakIdx > rankIdx + 3) {
-          candidates.push(pick([
+          candidates.push(pick(hu ? [
+            `Csúcson ${rank.peakRank} volt, most ${rankName}. A hanyatlás valóságos.`,
+            `A ${rank.peakRank} volt az álom. A ${rankName} a valóság. Kemény.`,
+            `Egyszer ${rank.peakRank}, most ${rankName}. Ez egy tragédia ív.`,
+            `A ${rank.peakRank} és ${rankName} közötti különbség egy egész történetet mesél el. Szomorút.`,
+            `Megtapasztaltad mind a ${rank.peakRank}-t, mind a ${rankName}-t. Csak az egyik maradt meg.`,
+          ] : [
             `Peaked at ${rank.peakRank} but fell to ${rankName}. The decline is real.`,
             `${rank.peakRank} was the dream. ${rankName} is the reality. Rough.`,
             `Once a ${rank.peakRank}, now a ${rankName}. This is a tragedy arc.`,
@@ -487,7 +705,10 @@
             `You've experienced both ${rank.peakRank} and ${rankName}. Only one of them stuck.`,
           ]));
         } else if (peakIdx > rankIdx + 1) {
-          candidates.push(pick([
+          candidates.push(pick(hu ? [
+            `Kicsit csúsztál a csúcs ${rank.peakRank}-ról. A gravitáció a rangokra is vonatkozik.`,
+            `${rank.peakRank} csúcs, most ${rankName}. Még mindig esik vagy végre stabil?`,
+          ] : [
             `Slipped a bit from your peak ${rank.peakRank}. Gravity works on ranks too.`,
             `${rank.peakRank} peak, ${rankName} now. Still falling or finally stable?`,
           ]));
@@ -496,7 +717,12 @@
 
       // Match count with no results
       if (stats.totalMatches === 0 && stats.totalHours === 0) {
-        return [pick([
+        return [pick(hu ? [
+          "Nem találtunk adatot. Vagy tiszta vagy, vagy elrejtetted a bizonyítékokat.",
+          "Semmi sem lett rögzítve. Gyanús. Nagyon gyanús.",
+          "Nulla óra, nulla meccs. Vagy ártatlan vagy, vagy hazudol.",
+          "Nem rögzítettünk aktivitást. Elhisszük neked. Tettetjük, hogy elhisszük.",
+        ] : [
           "No data found. Either you're clean, or you've hidden the evidence.",
           "Nothing tracked. Suspicious. Very suspicious.",
           "Zero hours, zero matches. You're either innocent or a liar.",
@@ -504,9 +730,15 @@
         ])];
       }
 
-      // Fallback / always-add general shames
+      // Fallback
       if (candidates.length === 0) {
-        candidates.push(pick([
+        candidates.push(pick(hu ? [
+          "Valorantot játszol. Ez a gúny.",
+          "Az, hogy itt vagy, önmagában eleget mond.",
+          "Egyetlen stat sem emelkedik ki. Az egész kép a probléma.",
+          "Minden mérhető szempontból átlagos vagy. A Valorant tette ezt veled.",
+          "A számok akármiek. Te még mindig Valorantot játszol.",
+        ] : [
           "You play Valorant. That's the roast.",
           "Just the fact that you're here says enough.",
           "No single stat stands out. The whole picture is the problem.",
@@ -515,8 +747,17 @@
         ]));
       }
 
-      // Always add one universal closing shame
-      const closers = [
+      // Universal closing shame
+      candidates.push(pick(hu ? [
+        "És mégis itt vagy. Mindjárt megint beállsz a sorba.",
+        "De persze, még egy meccs.",
+        "A legrosszabb rész? Büszke vagy néhányra.",
+        "Nem ítélünk. Csak megmutatjuk az adatokat.",
+        "Ez helyett inkább terápián lehettél volna.",
+        "Legalább tudatában vagy magadnak. Valamennyire.",
+        "Csúcsgamer. Mélypont ember.",
+        "A Riot köszöni a szolgálatot. És az idődet.",
+      ] : [
         "And yet here you are. About to queue again.",
         "But sure, one more game.",
         "The worst part? You're proud of some of this.",
@@ -525,10 +766,8 @@
         "At least you're self-aware. Kind of.",
         "Peak gamer. Trough human.",
         "Riot thanks you for your service. And your time.",
-      ];
-      candidates.push(pick(closers));
+      ]));
 
-      // Return at most 3 roasts, randomly shuffled
       const shuffled = candidates.sort(() => Math.random() - 0.5);
       return shuffled.slice(0, 3);
     }
@@ -546,10 +785,10 @@
         const otherPct = Math.max(0, 100 - parseFloat(valPct) - parseFloat(sleepPct)).toFixed(1);
         const roasts = generateRoast(stats, rank);
 
-        const rankName = rank?.rank || 'Unranked';
+        const rankName = rank?.rank === 'Unranked' ? t('unranked') : (rank?.rank || t('unranked'));
         const rankIcon = rank?.iconUrl ? `<img src="${rank.iconUrl}" class="w-8 h-8 inline-block" alt="${rankName}">` : '';
         const peakRankHtml = rank?.peakRank
-          ? `<div class="text-xs text-gray-500 mt-1">Peak: ${rank.peakRankIconUrl ? `<img src="${rank.peakRankIconUrl}" class="w-4 h-4 inline-block">` : ''} ${escapeHtml(rank.peakRank)}</div>`
+          ? `<div class="text-xs text-gray-500 mt-1">${t('peak')}: ${rank.peakRankIconUrl ? `<img src="${rank.peakRankIconUrl}" class="w-4 h-4 inline-block">` : ''} ${escapeHtml(rank.peakRank)}</div>`
           : '';
 
         // Calculate "could have done instead" equivalents
@@ -583,11 +822,11 @@
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mb-6">
             <div>
               <div class="text-2xl font-bold text-val-red">${stats.totalHours.toFixed(1)}h</div>
-              <div class="text-xs text-gray-400">Time Wasted</div>
+              <div class="text-xs text-gray-400">${t('statTimeWasted')}</div>
             </div>
             <div>
               <div class="text-2xl font-bold text-white">${stats.avgHoursPerDay.toFixed(1)}h</div>
-              <div class="text-xs text-gray-400">Avg/Day</div>
+              <div class="text-xs text-gray-400">${t('statAvgDay')}</div>
             </div>
             <div>
               <div class="text-2xl font-bold text-white">${stats.totalMatches}</div>
@@ -595,40 +834,40 @@
             </div>
             <div>
               <div class="text-2xl font-bold text-orange-400">${stats.longestDayHours.toFixed(1)}h</div>
-              <div class="text-xs text-gray-400">Worst Day</div>
+              <div class="text-xs text-gray-400">${t('statWorstDay')}</div>
             </div>
             <div>
               <div class="text-2xl font-bold text-yellow-400">${stats.wakingPercent.toFixed(1)}%</div>
-              <div class="text-xs text-gray-400">of Waking Life</div>
+              <div class="text-xs text-gray-400">${t('statWakingLife')}</div>
             </div>
             <div>
               <div class="text-2xl font-bold text-gray-300">${stats.daysPlayed}/${stats.daysPeriod}</div>
-              <div class="text-xs text-gray-400">Days Played</div>
+              <div class="text-xs text-gray-400">${t('statDaysPlayed')}</div>
             </div>
           </div>
 
           <!-- "Could have instead" section -->
           <div class="bg-val-darker rounded-lg p-3 mb-5 border border-val-border">
-            <div class="text-xs text-gray-500 font-medium mb-2 uppercase tracking-wide">Instead of ${stats.totalHours.toFixed(1)}h of Valorant, you could have...</div>
+            <div class="text-xs text-gray-500 font-medium mb-2 uppercase tracking-wide">${t('couldHaveInstead')(stats.totalHours.toFixed(1))}</div>
             <div class="flex flex-wrap gap-3 text-sm">
-              ${booksCouldRead > 0 ? `<span class="text-blue-400">Read ${booksCouldRead} book${booksCouldRead > 1 ? 's' : ''}</span><span class="text-gray-600">|</span>` : ''}
-              ${moviesCouldWatch > 0 ? `<span class="text-purple-400">Watched ${moviesCouldWatch} movie${moviesCouldWatch > 1 ? 's' : ''}</span><span class="text-gray-600">|</span>` : ''}
-              ${workoutsCouldDo > 0 ? `<span class="text-green-400">Done ${workoutsCouldDo} workout${workoutsCouldDo > 1 ? 's' : ''}</span><span class="text-gray-600">|</span>` : ''}
-              ${mealsCouldCook > 0 ? `<span class="text-amber-400">Cooked ${mealsCouldCook} meal${mealsCouldCook > 1 ? 's' : ''}</span>` : ''}
+              ${booksCouldRead > 0 ? `<span class="text-blue-400">${t('books')(booksCouldRead)}</span><span class="text-gray-600">|</span>` : ''}
+              ${moviesCouldWatch > 0 ? `<span class="text-purple-400">${t('movies')(moviesCouldWatch)}</span><span class="text-gray-600">|</span>` : ''}
+              ${workoutsCouldDo > 0 ? `<span class="text-green-400">${t('workouts')(workoutsCouldDo)}</span><span class="text-gray-600">|</span>` : ''}
+              ${mealsCouldCook > 0 ? `<span class="text-amber-400">${t('meals')(mealsCouldCook)}</span>` : ''}
             </div>
           </div>
 
           <!-- Breakdown Bar -->
-          <div class="mb-2 text-xs text-gray-400 font-medium">Where Your Time Actually Goes</div>
+          <div class="mb-2 text-xs text-gray-400 font-medium">${t('timeBreakdown')}</div>
           <div class="flex rounded-lg overflow-hidden h-7 mb-2">
             <div class="bg-val-red flex items-center justify-center text-xs font-medium text-white" style="width: ${Math.max(parseFloat(valPct), 0.5)}%">${parseFloat(valPct) > 3 ? valPct + '%' : ''}</div>
-            <div class="bg-indigo-900 flex items-center justify-center text-xs font-medium text-indigo-200" style="width: ${sleepPct}%">${parseFloat(sleepPct) > 5 ? 'Sleep' : ''}</div>
-            <div class="bg-gray-700 flex items-center justify-center text-xs font-medium text-gray-300" style="width: ${otherPct}%">${parseFloat(otherPct) > 5 ? 'Other' : ''}</div>
+            <div class="bg-indigo-900 flex items-center justify-center text-xs font-medium text-indigo-200" style="width: ${sleepPct}%">${parseFloat(sleepPct) > 5 ? t('sleep') : ''}</div>
+            <div class="bg-gray-700 flex items-center justify-center text-xs font-medium text-gray-300" style="width: ${otherPct}%">${parseFloat(otherPct) > 5 ? t('other') : ''}</div>
           </div>
           <div class="flex gap-4 text-xs text-gray-500">
             <span><span class="inline-block w-2 h-2 rounded-sm bg-val-red mr-1"></span>Valorant ${valPct}%</span>
-            <span><span class="inline-block w-2 h-2 rounded-sm bg-indigo-900 mr-1"></span>Sleep ${sleepPct}%</span>
-            <span><span class="inline-block w-2 h-2 rounded-sm bg-gray-700 mr-1"></span>Other ${otherPct}%</span>
+            <span><span class="inline-block w-2 h-2 rounded-sm bg-indigo-900 mr-1"></span>${t('sleep')} ${sleepPct}%</span>
+            <span><span class="inline-block w-2 h-2 rounded-sm bg-gray-700 mr-1"></span>${t('other')} ${otherPct}%</span>
           </div>
         `;
         container.appendChild(card);
@@ -658,7 +897,7 @@
 
       const sortedDates = [...allDates].sort();
       if (sortedDates.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-sm">No heatmap data available.</p>';
+        container.innerHTML = `<p class="text-gray-500 text-sm">${t('noHeatmap')}</p>`;
         return;
       }
 
@@ -699,7 +938,7 @@
 
           cell.addEventListener('mouseenter', (e) => {
             const tooltip = document.getElementById('tooltip');
-            tooltip.innerHTML = `<strong>${date}</strong><br>${hours.toFixed(1)}h &middot; ${matches} matches`;
+            tooltip.innerHTML = `<strong>${date}</strong><br>${hours.toFixed(1)}h &middot; ${matches} ${t('tooltipMatches')}`;
             tooltip.classList.remove('hidden');
             const rect = cell.getBoundingClientRect();
             tooltip.style.left = rect.left + window.scrollX + 'px';
