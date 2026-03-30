@@ -1034,8 +1034,7 @@
       const HOUR_HEIGHT = 28; // px per hour
       const TOTAL_HOURS = 24;
       const GRID_HEIGHT = TOTAL_HOURS * HOUR_HEIGHT;
-      const PLAYER_COLORS = ['#ff4655', '#4adeaa', '#60a5fa', '#f59e0b', '#a78bfa'];
-      const PLAYER_BG = ['rgba(255,70,85,0.18)', 'rgba(74,222,170,0.18)', 'rgba(96,165,250,0.18)', 'rgba(245,158,11,0.18)', 'rgba(167,139,250,0.18)'];
+      const PLAYER_COLORS = ['#60a5fa', '#f59e0b', '#a78bfa', '#22d3ee', '#f472b6'];
 
       // Build days for current period in local timezone
       const localDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -1082,16 +1081,16 @@
       }
       const winItem = document.createElement('span');
       winItem.style.cssText = 'display:flex;align-items:center;gap:4px;color:#4adeaa;';
-      winItem.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(74,222,170,0.25);border:1px solid #4adeaa;flex-shrink:0;"></span>${currentLang === 'hu' ? 'Győzelem' : 'Win'}`;
+      winItem.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(74,222,170,0.4);flex-shrink:0;"></span>${currentLang === 'hu' ? 'Győzelem' : 'Win'}`;
       const lossItem = document.createElement('span');
       lossItem.style.cssText = 'display:flex;align-items:center;gap:4px;color:#f87171;';
-      lossItem.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(248,113,113,0.25);border:1px solid #f87171;flex-shrink:0;"></span>${currentLang === 'hu' ? 'Vereség' : 'Loss'}`;
+      lossItem.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(248,113,113,0.4);flex-shrink:0;"></span>${currentLang === 'hu' ? 'Vereség' : 'Loss'}`;
       legend.appendChild(winItem);
       legend.appendChild(lossItem);
       if (numPlayers > 1) {
         const togetherItem = document.createElement('span');
         togetherItem.style.cssText = 'display:flex;align-items:center;gap:4px;color:#c4b5fd;';
-        togetherItem.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(196,181,253,0.15);border:2px solid #c4b5fd;flex-shrink:0;"></span>${currentLang === 'hu' ? 'Együtt játszva' : 'Played together'}`;
+        togetherItem.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(196,181,253,0.4) 2px,rgba(196,181,253,0.4) 4px);flex-shrink:0;"></span>${currentLang === 'hu' ? 'Együtt játszva' : 'Played together'}`;
         legend.appendChild(togetherItem);
       }
       container.appendChild(legend);
@@ -1161,9 +1160,6 @@
 
               const isWin = match.metadata?.result === 'victory';
               const winBg = isWin ? 'rgba(74,222,170,0.15)' : 'rgba(248,113,113,0.15)';
-              // Multi-player: use player color for border/text; single: use win/loss color
-              const borderColor = numPlayers > 1 ? playerColor : (isWin ? '#4adeaa' : '#f87171');
-              const textColor = numPlayers > 1 ? playerColor : (isWin ? '#4adeaa' : '#f87171');
 
               const seg = match.segments?.find(s => s.type === 'overview');
               const mapName = match.metadata?.mapName || '';
@@ -1179,17 +1175,19 @@
               const block = document.createElement('div');
               block.className = 'cal-event';
               block.dataset.matchId = matchId || `${pm.username}::${dateStr}::${mIdx + 1}`;
-              const label = durationPx >= 30 ? `${isWin ? '✓' : '✗'} ${mapName}` : `${isWin ? '✓' : '✗'}`;
+              const label = durationPx >= 30 ? mapName : '';
+              const togetherBg = playedTogether
+                ? `repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(196,181,253,0.15) 4px,rgba(196,181,253,0.15) 8px),${winBg}`
+                : winBg;
               block.style.cssText = [
                 `position:absolute`,
                 `top:${Math.round(topPx)}px`,
                 `left:${subW * pIdx}%`,
                 `width:calc(${subW}% - 2px)`,
                 `height:${Math.round(durationPx)}px`,
-                `background-color:${winBg}`,
-                `border-left:3px solid ${borderColor}`,
-                `color:${textColor}`,
-                playedTogether ? `outline:2px solid #c4b5fd;outline-offset:-2px;` : '',
+                `background:${togetherBg}`,
+                `border-left:3px solid ${playerColor}`,
+                `color:${playerColor}`,
               ].join(';');
               block.textContent = label;
 
