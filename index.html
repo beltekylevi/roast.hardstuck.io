@@ -32,6 +32,8 @@
     .tooltip { position: absolute; background: #1a2634; border: 1px solid #2a3a4a; padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #ccc; pointer-events: none; z-index: 50; white-space: nowrap; }
     .roast-banner { animation: fadeInUp 0.5s ease-out; }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .cal-event { border-radius: 4px; padding: 4px 6px; font-size: 11px; overflow: hidden; cursor: default; transition: opacity 0.15s; line-height: 1.3; }
+    .cal-event:hover { opacity: 0.8; }
   </style>
 </head>
 <body class="min-h-screen text-gray-200 font-sans">
@@ -87,6 +89,13 @@
         <h2 class="text-xl font-bold mb-4 text-white" data-i18n="heatmapTitle">Addiction Heatmap</h2>
         <div id="heatmapContainer"></div>
       </div>
+
+      <!-- Calendar (7-day only) -->
+      <div id="calendarSection" class="bg-val-card border border-val-border rounded-xl p-6 mt-6">
+        <h2 class="text-xl font-bold mb-1 text-white" data-i18n="calendarTitle">Weekly Calendar</h2>
+        <p class="text-xs text-gray-500 mb-4" data-i18n="calendarSubtitle">Each block = one match. Height = match duration.</p>
+        <div id="calendarContainer" class="overflow-x-auto"></div>
+      </div>
     </div>
 
     <!-- Error -->
@@ -100,6 +109,7 @@
     let currentLang = 'en';
     let playersData = {};
     let playersRank = {};
+    let playersMatches = {};
     let currentPeriod = 14;
 
     const T = {
@@ -135,6 +145,10 @@
         other: 'Other',
         peak: 'Peak',
         unranked: 'Unranked',
+        calendarTitle: 'Weekly Calendar',
+        calendarSubtitle: 'Each block = one match. Height = match duration.',
+        calendarDays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        calendarMatchLabel: (n, h) => `${n} match${n > 1 ? 'es' : ''} · ${h}h`,
       },
       hu: {
         title: 'Hány Óra?',
@@ -168,6 +182,10 @@
         other: 'Egyéb',
         peak: 'Csúcs',
         unranked: 'Rangolatlan',
+        calendarTitle: 'Heti Naptár',
+        calendarSubtitle: 'Minden blokk = egy meccs. Magasság = meccs hossza.',
+        calendarDays: ['Vas', 'Hét', 'Ked', 'Sze', 'Csü', 'Pén', 'Szo'],
+        calendarMatchLabel: (n, h) => `${n} meccs · ${h}ó`,
       },
     };
 
@@ -243,6 +261,18 @@
       }
     }
 
+    async function fetchPlayerMatches(username) {
+      const encoded = encodeURIComponent(username);
+      const apiUrl = `https://api.tracker.gg/api/v2/valorant/standard/matches/riot/${encoded}?platform=pc&type=competitive`;
+      const proxyUrl = `https://beltekylevi--2fae82980cfd11f18ef642dde27851f2.web.val.run?url=${encodeURIComponent(apiUrl)}`;
+      try {
+        const resp = await fetch(proxyUrl);
+        if (!resp.ok) return [];
+        const json = await resp.json();
+        return json?.data?.matches || [];
+      } catch { return []; }
+    }
+
     async function handleTrack() {
       const input = document.getElementById('usernameInput').value.trim();
       if (!input) return;
@@ -264,14 +294,17 @@
       document.getElementById('trackBtn').disabled = true;
       playersData = {};
       playersRank = {};
+      playersMatches = {};
 
       const results = await Promise.allSettled(usernames.map(async (username) => {
-        const [data, rank] = await Promise.all([
+        const [data, rank, matches] = await Promise.all([
           fetchPlayerData(username),
           fetchPlayerRank(username),
+          fetchPlayerMatches(username),
         ]);
         playersData[username] = data;
         if (rank) playersRank[username] = rank;
+        if (matches?.length) playersMatches[username] = matches;
       }));
 
       document.getElementById('trackBtn').disabled = false;
@@ -309,6 +342,7 @@
       });
       renderPlayerCards();
       renderHeatmap();
+      renderCalendarView();
     }
 
     function getPlayerStats(data, days) {
@@ -954,6 +988,149 @@
         row.appendChild(grid);
         container.appendChild(row);
       });
+    }
+
+    function renderCalendarView() {
+      const container = document.getElementById('calendarContainer');
+      container.innerHTML = '';
+
+      const HOUR_HEIGHT = 28; // px per hour
+      const TOTAL_HOURS = 24;
+      const GRID_HEIGHT = TOTAL_HOURS * HOUR_HEIGHT;
+      const PLAYER_COLORS = ['#ff4655', '#4adeaa', '#60a5fa', '#f59e0b', '#a78bfa'];
+      const PLAYER_BG = ['rgba(255,70,85,0.18)', 'rgba(74,222,170,0.18)', 'rgba(96,165,250,0.18)', 'rgba(245,158,11,0.18)', 'rgba(167,139,250,0.18)'];
+
+      // Build days for current period in local timezone
+      const localDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const localHours = d => d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+      const days = [];
+      const now = new Date();
+      for (let i = currentPeriod - 1; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        days.push(localDateStr(d));
+      }
+
+      const playerMaps = Object.keys(playersData).map(username => ({ username }));
+
+      const calDays = T[currentLang].calendarDays;
+
+      // Outer wrapper: time column + 7 day columns
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'display:flex;min-width:520px;';
+
+      // Time axis column
+      const timeCol = document.createElement('div');
+      timeCol.style.cssText = `width:36px;flex-shrink:0;position:relative;height:${GRID_HEIGHT}px;margin-top:44px;`;
+      for (let h = 0; h <= TOTAL_HOURS; h += 4) {
+        const label = document.createElement('div');
+        label.style.cssText = `position:absolute;top:${h * HOUR_HEIGHT - 8}px;right:4px;font-size:10px;color:#4a5568;line-height:1;`;
+        label.textContent = `${h}h`;
+        timeCol.appendChild(label);
+      }
+      wrapper.appendChild(timeCol);
+
+      // Day columns
+      days.forEach((dateStr, dayIdx) => {
+        const dateObj = new Date(dateStr + 'T00:00:00');
+        const dayName = calDays[dateObj.getDay()];
+        const dayNum = dateObj.getDate();
+
+        const dayCol = document.createElement('div');
+        dayCol.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;';
+
+        // Day header
+        const header = document.createElement('div');
+        header.style.cssText = 'text-align:center;padding-bottom:8px;border-bottom:1px solid #2a3a4a;margin-bottom:0;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+        header.innerHTML = `<div style="font-size:11px;color:#6b7280;font-weight:600;letter-spacing:0.05em;">${dayName}</div><div style="font-size:14px;font-weight:700;color:#e5e7eb;">${dayNum}</div>`;
+        dayCol.appendChild(header);
+
+        // Events area
+        const eventsArea = document.createElement('div');
+        eventsArea.style.cssText = `position:relative;height:${GRID_HEIGHT}px;border-right:1px solid #1e2d3d;`;
+
+        // Hour grid lines
+        for (let h = 0; h <= TOTAL_HOURS; h += 4) {
+          const line = document.createElement('div');
+          line.style.cssText = `position:absolute;top:${h * HOUR_HEIGHT}px;left:0;right:0;border-top:1px solid #1e2d3d;`;
+          eventsArea.appendChild(line);
+        }
+
+        // Player sub-columns
+        const numPlayers = playerMaps.length;
+        const fmt = hrs => { const hh = Math.floor(hrs) % 24; const mm = Math.round((hrs % 1) * 60); return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`; };
+
+        playerMaps.forEach((pm, pIdx) => {
+          const subW = 100 / numPlayers;
+          const playerColor = PLAYER_COLORS[pIdx % PLAYER_COLORS.length];
+
+          // Use real match data if available, fall back to heatmap estimation
+          const realMatches = (playersMatches[pm.username] || [])
+            .filter(m => localDateStr(new Date(m.metadata?.timestamp)) === dateStr)
+            .sort((a, b) => new Date(a.metadata.timestamp) - new Date(b.metadata.timestamp));
+
+          if (realMatches.length > 0) {
+            let prevBottom = 0;
+            realMatches.forEach((match, mIdx) => {
+              const ts = new Date(match.metadata.timestamp);
+              const startHour = localHours(ts);
+              const durationHours = (match.segments?.[0]?.stats?.playtime?.value || 0) / 3600;
+              const durationPx = Math.max(durationHours * HOUR_HEIGHT, 20);
+              const topPx = Math.max(startHour * HOUR_HEIGHT, prevBottom + 1);
+              prevBottom = topPx + durationPx;
+              if (topPx >= GRID_HEIGHT) return;
+
+              const isWin = match.metadata?.result === 'victory';
+              const blockColor = isWin ? '#4adeaa' : '#f87171';
+              const blockBg = isWin ? 'rgba(74,222,170,0.15)' : 'rgba(248,113,113,0.15)';
+              const seg = match.segments?.find(s => s.type === 'overview');
+              const mapName = match.metadata?.mapName || '';
+              const agentName = seg?.metadata?.agentName || '';
+              const kills = seg?.stats?.kills?.value ?? '-';
+              const deaths = seg?.stats?.deaths?.value ?? '-';
+              const assists = seg?.stats?.assists?.value ?? '-';
+
+              const block = document.createElement('div');
+              block.className = 'cal-event';
+              block.dataset.matchId = match.attributes?.id || `${pm.username}::${dateStr}::${mIdx + 1}`;
+              const label = durationPx >= 30 ? `${isWin ? '✓' : '✗'} ${mapName}` : `${isWin ? '✓' : '✗'}`;
+              block.style.cssText = [
+                `position:absolute`,
+                `top:${Math.round(topPx)}px`,
+                `left:${subW * pIdx}%`,
+                `width:calc(${subW}% - 2px)`,
+                `height:${Math.round(durationPx)}px`,
+                `background-color:${blockBg}`,
+                `border-left:3px solid ${blockColor}`,
+                `color:${blockColor}`,
+              ].join(';');
+              block.textContent = label;
+
+              const result = isWin ? (currentLang === 'hu' ? 'Győzelem' : 'Win') : (currentLang === 'hu' ? 'Vereség' : 'Loss');
+              const startTime = fmt(startHour);
+              const endTime = fmt(startHour + durationHours);
+              block.addEventListener('mouseenter', () => {
+                const tooltip = document.getElementById('tooltip');
+                const playerLine = numPlayers > 1 ? `<strong style="color:${playerColor}">${escapeHtml(pm.username)}</strong><br>` : '';
+                const matchLabel = currentLang === 'hu' ? `${mIdx + 1}. meccs / ${realMatches.length}` : `Match ${mIdx + 1} of ${realMatches.length}`;
+                const kdaLine = seg ? `${kills}/${deaths}/${assists} · ` : '';
+                tooltip.innerHTML = `${playerLine}<strong>${mapName}</strong> · ${escapeHtml(agentName)}<br>${matchLabel}<br><span style="color:#9ca3af">${startTime} – ${endTime}</span><br>${kdaLine}<span style="color:${blockColor}">${result}</span>`;
+                tooltip.classList.remove('hidden');
+                const rect = block.getBoundingClientRect();
+                tooltip.style.left = (rect.left + window.scrollX + rect.width / 2) + 'px';
+                tooltip.style.top = (rect.top + window.scrollY - 75) + 'px';
+              });
+              block.addEventListener('mouseleave', () => { document.getElementById('tooltip').classList.add('hidden'); });
+              eventsArea.appendChild(block);
+            });
+          }
+        });
+
+        dayCol.appendChild(eventsArea);
+        wrapper.appendChild(dayCol);
+      });
+
+      container.appendChild(wrapper);
     }
 
     function showError(msg, isWarning = false) {
