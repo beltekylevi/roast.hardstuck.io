@@ -325,6 +325,7 @@
       }
 
       document.getElementById('results').classList.remove('hidden');
+      syncUrl(document.getElementById('usernameInput').value.trim(), currentPeriod);
       setPeriod(currentPeriod);
     }
 
@@ -340,6 +341,7 @@
           btn.classList.add('bg-val-card', 'text-gray-400', 'border', 'border-val-border');
         }
       });
+      syncUrl(document.getElementById('usernameInput').value.trim(), currentPeriod);
       renderPlayerCards();
       renderHeatmap();
       renderCalendarView();
@@ -1145,9 +1147,31 @@
       return div.innerHTML;
     }
 
+    function syncUrl(players, period) {
+      const params = new URLSearchParams();
+      if (players) params.set('players', players);
+      if (period) params.set('period', period);
+      const query = params.toString();
+      history.replaceState(null, '', query ? '?' + query : location.pathname);
+    }
+
     document.getElementById('usernameInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') handleTrack();
     });
+
+    document.getElementById('usernameInput').addEventListener('input', () => {
+      syncUrl(document.getElementById('usernameInput').value.trim(), currentPeriod);
+    });
+
+    // On load: read query params, pre-fill input, restore period, auto-track if players present
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const players = params.get('players');
+      const period = parseInt(params.get('period'));
+      if (players) document.getElementById('usernameInput').value = players;
+      if ([7, 14, 30].includes(period)) currentPeriod = period;
+      if (players) handleTrack();
+    })();
   </script>
 </body>
 </html>
