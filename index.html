@@ -263,6 +263,25 @@
 
     let matchesNextCursor = {}; // per-username next cursor for pagination
 
+    const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+    const cacheKey = u => `val_cache_${u}`;
+
+    function getCached(username) {
+      try {
+        const raw = localStorage.getItem(cacheKey(username));
+        if (!raw) return null;
+        const entry = JSON.parse(raw);
+        if (Date.now() - entry.ts > CACHE_TTL) return null;
+        return entry;
+      } catch { return null; }
+    }
+
+    function setCached(username, payload) {
+      try {
+        localStorage.setItem(cacheKey(username), JSON.stringify({ ts: Date.now(), ...payload }));
+      } catch {}
+    }
+
     async function fetchPlayerMatches(username, next = null) {
       const encoded = encodeURIComponent(username);
       const apiUrl = `https://api.tracker.gg/api/v2/valorant/standard/matches/riot/${encoded}?platform=pc&type=competitive${next !== null ? '&next=' + next : ''}`;
@@ -303,6 +322,14 @@
       matchesNextCursor = {};
 
       const results = await Promise.allSettled(usernames.map(async (username) => {
+        const cached = getCached(username);
+        if (cached) {
+          playersData[username] = cached.data;
+          if (cached.rank) playersRank[username] = cached.rank;
+          if (cached.matches?.length) playersMatches[username] = cached.matches;
+          matchesNextCursor[username] = cached.nextCursor ?? null;
+          return;
+        }
         const [data, rank, { matches, next }] = await Promise.all([
           fetchPlayerData(username),
           fetchPlayerRank(username),
@@ -312,6 +339,7 @@
         if (rank) playersRank[username] = rank;
         if (matches?.length) playersMatches[username] = matches;
         matchesNextCursor[username] = next;
+        setCached(username, { data, rank, matches, nextCursor: next });
       }));
 
       document.getElementById('trackBtn').disabled = false;
@@ -1212,6 +1240,12 @@
         const { matches, next } = await fetchPlayerMatches(username, cursor);
         if (matches.length) playersMatches[username] = [...(playersMatches[username] || []), ...matches];
         matchesNextCursor[username] = next;
+        setCached(username, {
+          data: playersData[username],
+          rank: playersRank[username] || null,
+          matches: playersMatches[username] || [],
+          nextCursor: next,
+        });
       }));
       renderCalendarView();
     }
