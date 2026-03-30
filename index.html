@@ -261,16 +261,21 @@
       }
     }
 
-    async function fetchPlayerMatches(username) {
+    let matchesNextCursor = {}; // per-username next cursor for pagination
+
+    async function fetchPlayerMatches(username, next = null) {
       const encoded = encodeURIComponent(username);
-      const apiUrl = `https://api.tracker.gg/api/v2/valorant/standard/matches/riot/${encoded}?platform=pc&type=competitive`;
+      const apiUrl = `https://api.tracker.gg/api/v2/valorant/standard/matches/riot/${encoded}?platform=pc&type=competitive${next !== null ? '&next=' + next : ''}`;
       const proxyUrl = `https://beltekylevi--2fae82980cfd11f18ef642dde27851f2.web.val.run?url=${encodeURIComponent(apiUrl)}`;
       try {
         const resp = await fetch(proxyUrl);
-        if (!resp.ok) return [];
+        if (!resp.ok) return { matches: [], next: null };
         const json = await resp.json();
-        return json?.data?.matches || [];
-      } catch { return []; }
+        return {
+          matches: json?.data?.matches || [],
+          next: json?.data?.metadata?.next ?? null,
+        };
+      } catch { return { matches: [], next: null }; }
     }
 
     async function handleTrack() {
@@ -295,9 +300,10 @@
       playersData = {};
       playersRank = {};
       playersMatches = {};
+      matchesNextCursor = {};
 
       const results = await Promise.allSettled(usernames.map(async (username) => {
-        const [data, rank, matches] = await Promise.all([
+        const [data, rank, { matches, next }] = await Promise.all([
           fetchPlayerData(username),
           fetchPlayerRank(username),
           fetchPlayerMatches(username),
@@ -305,6 +311,7 @@
         playersData[username] = data;
         if (rank) playersRank[username] = rank;
         if (matches?.length) playersMatches[username] = matches;
+        matchesNextCursor[username] = next;
       }));
 
       document.getElementById('trackBtn').disabled = false;
@@ -1003,6 +1010,7 @@
       const PLAYER_BG = ['rgba(255,70,85,0.18)', 'rgba(74,222,170,0.18)', 'rgba(96,165,250,0.18)', 'rgba(245,158,11,0.18)', 'rgba(167,139,250,0.18)'];
 
       // Build days for current period in local timezone
+      // Build days for current period in local timezone
       const localDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const localHours = d => d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
       const days = [];
@@ -1133,6 +1141,28 @@
       });
 
       container.appendChild(wrapper);
+
+      // Show "Load more" if any player still has a next cursor
+      const hasMore = Object.values(matchesNextCursor).some(c => c !== null);
+      if (hasMore) {
+        const btn = document.createElement('button');
+        btn.className = 'mt-4 w-full py-2 rounded-lg text-sm font-medium bg-val-darker border border-val-border text-gray-400 hover:text-white hover:border-gray-500 transition';
+        btn.textContent = 'Load more';
+        btn.onclick = loadMoreMatches;
+        container.appendChild(btn);
+      }
+    }
+
+    async function loadMoreMatches() {
+      const usernames = Object.keys(playersData);
+      await Promise.allSettled(usernames.map(async (username) => {
+        const cursor = matchesNextCursor[username];
+        if (cursor === null) return;
+        const { matches, next } = await fetchPlayerMatches(username, cursor);
+        if (matches.length) playersMatches[username] = [...(playersMatches[username] || []), ...matches];
+        matchesNextCursor[username] = next;
+      }));
+      renderCalendarView();
     }
 
     function showError(msg, isWarning = false) {
