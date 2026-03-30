@@ -1010,7 +1010,6 @@
       const PLAYER_BG = ['rgba(255,70,85,0.18)', 'rgba(74,222,170,0.18)', 'rgba(96,165,250,0.18)', 'rgba(245,158,11,0.18)', 'rgba(167,139,250,0.18)'];
 
       // Build days for current period in local timezone
-      // Build days for current period in local timezone
       const localDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const localHours = d => d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
       const days = [];
@@ -1022,10 +1021,54 @@
       }
 
       const playerMaps = Object.keys(playersData).map(username => ({ username }));
+      const numPlayers = playerMaps.length;
+
+      // Build match UUID → [usernames] lookup for "played together" detection
+      const matchPlayers = {};
+      playerMaps.forEach(pm => {
+        (playersMatches[pm.username] || []).forEach(match => {
+          const id = match.attributes?.id;
+          if (!id) return;
+          if (!matchPlayers[id]) matchPlayers[id] = [];
+          matchPlayers[id].push(pm.username);
+        });
+      });
 
       const calDays = T[currentLang].calendarDays;
 
-      // Outer wrapper: time column + 7 day columns
+      // Legend
+      const legend = document.createElement('div');
+      legend.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px;font-size:11px;';
+      if (numPlayers > 1) {
+        playerMaps.forEach((pm, pIdx) => {
+          const color = PLAYER_COLORS[pIdx % PLAYER_COLORS.length];
+          const item = document.createElement('span');
+          item.style.cssText = 'display:flex;align-items:center;gap:4px;color:#d1d5db;';
+          item.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0;"></span>${escapeHtml(pm.username)}`;
+          legend.appendChild(item);
+        });
+        const sep = document.createElement('span');
+        sep.style.cssText = 'color:#374151;';
+        sep.textContent = '|';
+        legend.appendChild(sep);
+      }
+      const winItem = document.createElement('span');
+      winItem.style.cssText = 'display:flex;align-items:center;gap:4px;color:#4adeaa;';
+      winItem.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(74,222,170,0.25);border:1px solid #4adeaa;flex-shrink:0;"></span>${currentLang === 'hu' ? 'Győzelem' : 'Win'}`;
+      const lossItem = document.createElement('span');
+      lossItem.style.cssText = 'display:flex;align-items:center;gap:4px;color:#f87171;';
+      lossItem.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(248,113,113,0.25);border:1px solid #f87171;flex-shrink:0;"></span>${currentLang === 'hu' ? 'Vereség' : 'Loss'}`;
+      legend.appendChild(winItem);
+      legend.appendChild(lossItem);
+      if (numPlayers > 1) {
+        const togetherItem = document.createElement('span');
+        togetherItem.style.cssText = 'display:flex;align-items:center;gap:4px;color:#c4b5fd;';
+        togetherItem.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(196,181,253,0.15);border:2px solid #c4b5fd;flex-shrink:0;"></span>${currentLang === 'hu' ? 'Együtt játszva' : 'Played together'}`;
+        legend.appendChild(togetherItem);
+      }
+      container.appendChild(legend);
+
+      // Outer wrapper: time column + day columns
       const wrapper = document.createElement('div');
       wrapper.style.cssText = 'display:flex;min-width:520px;';
 
@@ -1067,14 +1110,12 @@
         }
 
         // Player sub-columns
-        const numPlayers = playerMaps.length;
         const fmt = hrs => { const hh = Math.floor(hrs) % 24; const mm = Math.round((hrs % 1) * 60); return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`; };
 
         playerMaps.forEach((pm, pIdx) => {
           const subW = 100 / numPlayers;
           const playerColor = PLAYER_COLORS[pIdx % PLAYER_COLORS.length];
 
-          // Use real match data if available, fall back to heatmap estimation
           const realMatches = (playersMatches[pm.username] || [])
             .filter(m => localDateStr(new Date(m.metadata?.timestamp)) === dateStr)
             .sort((a, b) => new Date(a.metadata.timestamp) - new Date(b.metadata.timestamp));
@@ -1091,8 +1132,11 @@
               if (topPx >= GRID_HEIGHT) return;
 
               const isWin = match.metadata?.result === 'victory';
-              const blockColor = isWin ? '#4adeaa' : '#f87171';
-              const blockBg = isWin ? 'rgba(74,222,170,0.15)' : 'rgba(248,113,113,0.15)';
+              const winBg = isWin ? 'rgba(74,222,170,0.15)' : 'rgba(248,113,113,0.15)';
+              // Multi-player: use player color for border/text; single: use win/loss color
+              const borderColor = numPlayers > 1 ? playerColor : (isWin ? '#4adeaa' : '#f87171');
+              const textColor = numPlayers > 1 ? playerColor : (isWin ? '#4adeaa' : '#f87171');
+
               const seg = match.segments?.find(s => s.type === 'overview');
               const mapName = match.metadata?.mapName || '';
               const agentName = seg?.metadata?.agentName || '';
@@ -1100,9 +1144,13 @@
               const deaths = seg?.stats?.deaths?.value ?? '-';
               const assists = seg?.stats?.assists?.value ?? '-';
 
+              const matchId = match.attributes?.id;
+              const teammates = matchId ? (matchPlayers[matchId] || []).filter(u => u !== pm.username) : [];
+              const playedTogether = teammates.length > 0;
+
               const block = document.createElement('div');
               block.className = 'cal-event';
-              block.dataset.matchId = match.attributes?.id || `${pm.username}::${dateStr}::${mIdx + 1}`;
+              block.dataset.matchId = matchId || `${pm.username}::${dateStr}::${mIdx + 1}`;
               const label = durationPx >= 30 ? `${isWin ? '✓' : '✗'} ${mapName}` : `${isWin ? '✓' : '✗'}`;
               block.style.cssText = [
                 `position:absolute`,
@@ -1110,13 +1158,15 @@
                 `left:${subW * pIdx}%`,
                 `width:calc(${subW}% - 2px)`,
                 `height:${Math.round(durationPx)}px`,
-                `background-color:${blockBg}`,
-                `border-left:3px solid ${blockColor}`,
-                `color:${blockColor}`,
+                `background-color:${winBg}`,
+                `border-left:3px solid ${borderColor}`,
+                `color:${textColor}`,
+                playedTogether ? `outline:2px solid #c4b5fd;outline-offset:-2px;` : '',
               ].join(';');
               block.textContent = label;
 
               const result = isWin ? (currentLang === 'hu' ? 'Győzelem' : 'Win') : (currentLang === 'hu' ? 'Vereség' : 'Loss');
+              const resultColor = isWin ? '#4adeaa' : '#f87171';
               const startTime = fmt(startHour);
               const endTime = fmt(startHour + durationHours);
               block.addEventListener('mouseenter', () => {
@@ -1124,7 +1174,8 @@
                 const playerLine = numPlayers > 1 ? `<strong style="color:${playerColor}">${escapeHtml(pm.username)}</strong><br>` : '';
                 const matchLabel = currentLang === 'hu' ? `${mIdx + 1}. meccs / ${realMatches.length}` : `Match ${mIdx + 1} of ${realMatches.length}`;
                 const kdaLine = seg ? `${kills}/${deaths}/${assists} · ` : '';
-                tooltip.innerHTML = `${playerLine}<strong>${mapName}</strong> · ${escapeHtml(agentName)}<br>${matchLabel}<br><span style="color:#9ca3af">${startTime} – ${endTime}</span><br>${kdaLine}<span style="color:${blockColor}">${result}</span>`;
+                const togetherLine = playedTogether ? `<br><span style="color:#c4b5fd">⚑ ${currentLang === 'hu' ? 'Együtt: ' : 'With: '}${teammates.map(escapeHtml).join(', ')}</span>` : '';
+                tooltip.innerHTML = `${playerLine}<strong>${mapName}</strong> · ${escapeHtml(agentName)}<br>${matchLabel}<br><span style="color:#9ca3af">${startTime} – ${endTime}</span><br>${kdaLine}<span style="color:${resultColor}">${result}</span>${togetherLine}`;
                 tooltip.classList.remove('hidden');
                 const rect = block.getBoundingClientRect();
                 tooltip.style.left = (rect.left + window.scrollX + rect.width / 2) + 'px';
